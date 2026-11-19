@@ -21,7 +21,7 @@ import org.jetbrains.annotations.Nullable;
 public final class SmartyTemplateHighlighter extends LayeredLexerEditorHighlighter {
 
     public SmartyTemplateHighlighter(@Nullable Project project, @Nullable VirtualFile file, @NotNull EditorColorsScheme scheme) {
-        super(new SmartySyntaxHighlighter(), scheme);
+        super(new SmartySyntaxHighlighter(com.smartyplugin.lang.SmartyDelimiters.of(project)), scheme);
         Language dataLanguage = SmartyFileViewProvider.computeTemplateDataLanguage(project, file);
         FileType dataType = dataLanguage.getAssociatedFileType();
         if (dataType == null) dataType = HtmlFileType.INSTANCE;

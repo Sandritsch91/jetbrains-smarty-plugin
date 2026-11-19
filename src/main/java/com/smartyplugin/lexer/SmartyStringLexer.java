@@ -28,6 +28,27 @@ public final class SmartyStringLexer extends LexerBase {
     private int bufferEnd;
     private final List<Token> tokens = new ArrayList<>();
     private int index;
+    private final com.smartyplugin.lang.SmartyDelimiters delimiters;
+    private final String ld;
+    private final String rd;
+
+    public SmartyStringLexer() {
+        this(com.smartyplugin.lang.SmartyDelimiters.DEFAULT);
+    }
+
+    public SmartyStringLexer(@NotNull com.smartyplugin.lang.SmartyDelimiters delimiters) {
+        this.delimiters = delimiters;
+        this.ld = delimiters.left();
+        this.rd = delimiters.right();
+    }
+
+    private boolean startsWith(int p, int end, String s) {
+        if (p + s.length() > end) return false;
+        for (int i = 0; i < s.length(); i++) {
+            if (buffer.charAt(p + i) != s.charAt(i)) return false;
+        }
+        return true;
+    }
 
     @Override
     public void start(@NotNull CharSequence buffer, int startOffset, int endOffset, int initialState) {
@@ -67,10 +88,11 @@ public final class SmartyStringLexer extends LexerBase {
                     delegate(p + 1, close, SmartyLexer.EXPRESSION_STATE);
                     tokens.add(new Token(BACKTICK, close, close + 1));
                 }
-            } else if (c == '{' && p + 1 < end && !Character.isWhitespace(buffer.charAt(p + 1))) {
+            } else if (startsWith(p, end, ld) && p + ld.length() < end
+                    && !Character.isWhitespace(buffer.charAt(p + ld.length()))) {
                 int close = matchingBrace(p, end);
                 if (close > 0) {
-                    partEnd = close + 1;
+                    partEnd = close + rd.length();
                     flushText(textStart, p);
                     delegate(p, partEnd, 0);
                 }
@@ -92,7 +114,7 @@ public final class SmartyStringLexer extends LexerBase {
     /** Lexes an embedded tag or expression with the regular Smarty lexer. */
     private void delegate(int from, int to, int state) {
         if (to <= from) return;
-        SmartyLexer lexer = new SmartyLexer();
+        SmartyLexer lexer = new SmartyLexer(delimiters);
         lexer.start(buffer, from, to, state);
         IElementType type;
         while ((type = lexer.getTokenType()) != null) {
@@ -101,7 +123,10 @@ public final class SmartyStringLexer extends LexerBase {
         }
     }
 
-    /** Offset of the '}' closing the tag that starts at {@code open}, or -1; quotes and nested tags are skipped. */
+    /**
+     * Offset of the right delimiter closing the tag that starts at {@code open}, or -1; quotes and nested tags
+     * are skipped.
+     */
     private int matchingBrace(int open, int end) {
         int depth = 0;
         char quote = 0;
@@ -112,14 +137,16 @@ public final class SmartyStringLexer extends LexerBase {
                 else if (ch == quote) quote = 0;
                 continue;
             }
-            if (ch == '\'' || ch == '"' && q > open) {
+            if (startsWith(q, end, ld)) {
+                depth++;
+                q += ld.length() - 1;
+            } else if (startsWith(q, end, rd)) {
+                if (--depth == 0) return q;
+                q += rd.length() - 1;
+            } else if (ch == '\'' || ch == '"') {
                 // the outer string's closing quote can't be inside the tag: an unmatched '"' ends the search
                 if (ch == '"' && indexOf('"', q + 1, end) < 0) return -1;
                 quote = ch;
-            } else if (ch == '{') {
-                depth++;
-            } else if (ch == '}' && --depth == 0) {
-                return q;
             }
         }
         return -1;

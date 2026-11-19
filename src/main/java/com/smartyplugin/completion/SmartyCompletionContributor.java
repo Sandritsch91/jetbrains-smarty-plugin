@@ -16,6 +16,7 @@ import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.tree.IElementType;
 import com.intellij.psi.util.PsiTreeUtil;
+import com.smartyplugin.lang.SmartyDelimiters;
 import com.smartyplugin.lang.SmartyIcons;
 import com.smartyplugin.lang.SmartyLanguage;
 import com.smartyplugin.lang.SmartyTags;
@@ -85,11 +86,12 @@ public final class SmartyCompletionContributor extends CompletionContributor {
 
     private static void completeTagNames(PsiFile file, int caret, CompletionResultSet rs) {
         Set<String> seen = new LinkedHashSet<>();
+        SmartyDelimiters d = SmartyDelimiters.of(file.getProject());
         for (SmartyTags.Tag tag : SmartyTags.allTags()) {
             seen.add(tag.name());
             LookupElementBuilder element = LookupElementBuilder.create(tag.name())
                     .withIcon(SmartyIcons.FILE)
-                    .withTailText(tag.kind() == SmartyTags.Kind.BLOCK ? " …{/" + tag.name() + "}" : null, true)
+                    .withTailText(tag.kind() == SmartyTags.Kind.BLOCK ? " …" + d.closeTag(tag.name()) : null, true)
                     .withTypeText(tag.description(), true)
                     .withInsertHandler(new TagInsertHandler(tag));
             double priority = "Yii2".equals(tag.source()) ? -1 : 0;
@@ -134,11 +136,14 @@ public final class SmartyCompletionContributor extends CompletionContributor {
     private static final InsertHandler<LookupElement> CLOSE_BRACE = (context, item) -> {
         Document doc = context.getDocument();
         int tail = context.getTailOffset();
-        if (tail >= doc.getTextLength() || doc.getCharsSequence().charAt(tail) != '}') {
-            doc.insertString(tail, "}");
-        }
-        context.getEditor().getCaretModel().moveToOffset(tail + 1);
+        String right = SmartyDelimiters.of(context.getProject()).right();
+        if (!startsWith(doc.getCharsSequence(), tail, right)) doc.insertString(tail, right);
+        context.getEditor().getCaretModel().moveToOffset(tail + right.length());
     };
+
+    private static boolean startsWith(CharSequence text, int offset, String s) {
+        return offset + s.length() <= text.length() && text.subSequence(offset, offset + s.length()).toString().equals(s);
+    }
 
     private record TagInsertHandler(SmartyTags.Tag tag) implements InsertHandler<LookupElement> {
         @Override
@@ -146,7 +151,8 @@ public final class SmartyCompletionContributor extends CompletionContributor {
             Document doc = context.getDocument();
             int tail = context.getTailOffset();
             CharSequence text = doc.getCharsSequence();
-            boolean braceFollows = tail < text.length() && text.charAt(tail) == '}';
+            SmartyDelimiters d = SmartyDelimiters.of(context.getProject());
+            boolean braceFollows = startsWith(text, tail, d.right());
             if (tag.takesArguments()) {
                 if (!braceFollows && (tail >= text.length() || text.charAt(tail) != ' ')) {
                     doc.insertString(tail, " ");
@@ -157,10 +163,10 @@ public final class SmartyCompletionContributor extends CompletionContributor {
                 }
                 return;
             }
-            String insert = braceFollows ? "" : "}";
-            int caret = tail + 1;
+            String insert = braceFollows ? "" : d.right();
+            int caret = tail + d.right().length();
             if (tag.kind() == SmartyTags.Kind.BLOCK) {
-                insert += "{/" + tag.name() + "}";
+                insert += d.closeTag(tag.name());
             }
             doc.insertString(tail, insert);
             context.getEditor().getCaretModel().moveToOffset(caret);

@@ -1,6 +1,7 @@
 package com.smartyplugin.lexer;
 
 import com.intellij.lexer.LexerBase;
+import com.smartyplugin.lang.SmartyDelimiters;
 import com.intellij.psi.tree.IElementType;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -24,6 +25,7 @@ import static com.smartyplugin.lexer.SmartyTokenTypes.*;
  * </pre>
  */
 public final class SmartyLexer extends LexerBase {
+    // the delimiters are fixed per lexer instance, so the int state stays enough to restart anywhere
     static final int CONTENT = 0;
     static final int TAG = 1;
     static final int TAG_START = 2;
@@ -35,7 +37,21 @@ public final class SmartyLexer extends LexerBase {
     /** Inside a tag, after its name: lexes a bare expression such as the "$a.b" of "`$a.b`" in a string. */
     public static final int EXPRESSION_STATE = TAG | (1 << DEPTH_SHIFT);
 
-    private static final String LITERAL_END = "{/literal}";
+    /** left_delimiter / right_delimiter, "{" and "}" unless configured. */
+    private final String ld;
+    private final String rd;
+    /** {/literal} in lower case, for a case-insensitive search. */
+    private final String literalEnd;
+
+    public SmartyLexer() {
+        this(SmartyDelimiters.DEFAULT);
+    }
+
+    public SmartyLexer(@NotNull SmartyDelimiters delimiters) {
+        this.ld = delimiters.left();
+        this.rd = delimiters.right();
+        this.literalEnd = delimiters.closeTag("literal").toLowerCase(java.util.Locale.ROOT);
+    }
 
     private static final Set<String> KEYWORDS = Set.of(
             "eq", "ne", "neq", "gt", "lt", "ge", "gte", "le", "lte", "and", "or", "not", "xor", "mod",
@@ -109,13 +125,8 @@ public final class SmartyLexer extends LexerBase {
     private void lexContent() {
         int p = tokenStart;
         if (isTagStart(p)) {
-            if (charAt(p + 1) == '*') {
-                int close = indexOf("*}", p + 2);
-                tokenEnd = close < 0 ? bufferEnd : close + 2;
-                tokenType = COMMENT;
-                return;
-            }
-            tokenEnd = p + 1;
+            if (lexComment(p)) return;
+            tokenEnd = p + ld.length();
             tokenType = LDELIM;
             state = compose(TAG_START, false, false, 1);
             return;
@@ -125,10 +136,20 @@ public final class SmartyLexer extends LexerBase {
         tokenType = TEMPLATE_TEXT;
     }
 
+    /** {* comment *} starting at p (p is at the left delimiter); false if there is none. */
+    private boolean lexComment(int p) {
+        if (charAt(p + ld.length()) != '*') return false;
+        String end = "*" + rd;
+        int close = indexOf(end, p + ld.length() + 1);
+        tokenEnd = close < 0 ? bufferEnd : close + end.length();
+        tokenType = COMMENT;
+        return true;
+    }
+
     private void lexLiteral() {
-        int end = indexOfIgnoreCase(LITERAL_END, tokenStart);
+        int end = indexOfIgnoreCase(literalEnd, tokenStart);
         if (end == tokenStart) {
-            tokenEnd = tokenStart + 1;
+            tokenEnd = tokenStart + ld.length();
             tokenType = LDELIM;
             state = compose(TAG_START, false, false, 1);
             return;
@@ -137,9 +158,18 @@ public final class SmartyLexer extends LexerBase {
         tokenType = TEMPLATE_TEXT;
     }
 
-    /** A '{' starts a tag unless it is followed by whitespace (Smarty auto_literal). */
+    /** The left delimiter starts a tag unless it is followed by whitespace (Smarty auto_literal). */
     private boolean isTagStart(int p) {
-        return charAt(p) == '{' && p + 1 < bufferEnd && !Character.isWhitespace(charAt(p + 1));
+        int after = p + ld.length();
+        return startsWith(p, ld) && after < bufferEnd && !Character.isWhitespace(charAt(after));
+    }
+
+    private boolean startsWith(int p, String s) {
+        if (p < 0 || p + s.length() > bufferEnd) return false;
+        for (int i = 0; i < s.length(); i++) {
+            if (buffer.charAt(p + i) != s.charAt(i)) return false;
+        }
+        return true;
     }
 
     // ---------------------------------------------------------------- tags
@@ -159,8 +189,8 @@ public final class SmartyLexer extends LexerBase {
             return; // state unchanged
         }
 
-        if (c == '}') {
-            tokenEnd = p + 1;
+        if (startsWith(p, rd)) {
+            tokenEnd = p + rd.length();
             tokenType = RDELIM;
             int newDepth = depth - 1;
             if (newDepth <= 0) {
@@ -170,14 +200,9 @@ public final class SmartyLexer extends LexerBase {
             }
             return;
         }
-        if (c == '{') {
-            if (charAt(p + 1) == '*') {
-                int close = indexOf("*}", p + 2);
-                tokenEnd = close < 0 ? bufferEnd : close + 2;
-                tokenType = COMMENT;
-                return;
-            }
-            tokenEnd = p + 1;
+        if (startsWith(p, ld)) {
+            if (lexComment(p)) return;
+            tokenEnd = p + ld.length();
             tokenType = LDELIM;
             state = compose(TAG_START, false, literalTag, depth + 1);
             return;
@@ -328,8 +353,16 @@ public final class SmartyLexer extends LexerBase {
                 continue;
             }
             if (quote == '"') {
-                if (ch == '{' && startsEmbeddedTag(q + 1)) tags++;
-                else if (ch == '}' && tags > 0) tags--;
+                if (startsWith(q, ld) && startsEmbeddedTag(q + ld.length())) {
+                    tags++;
+                    q += ld.length();
+                    continue;
+                }
+                if (tags > 0 && startsWith(q, rd)) {
+                    tags--;
+                    q += rd.length();
+                    continue;
+                }
             }
             if (ch == quote && tags == 0) return q + 1;
             q++;
@@ -353,10 +386,16 @@ public final class SmartyLexer extends LexerBase {
                 continue;
             }
             if (ch == '\n') return q;
-            if (quote == '"' && ch == '{') braces++;
-            if (ch == '}') {
+            if (quote == '"' && startsWith(q, ld)) {
+                braces++;
+                q += ld.length();
+                continue;
+            }
+            if (startsWith(q, rd)) {
                 if (braces == 0) return q; // don't swallow the tag end
                 braces--;
+                q += rd.length();
+                continue;
             }
             q++;
         }

@@ -9,6 +9,6 @@ import org.jetbrains.annotations.NotNull;
 public final class SmartySyntaxHighlighterFactory extends SyntaxHighlighterFactory {
     @Override
     public @NotNull SyntaxHighlighter getSyntaxHighlighter(Project project, VirtualFile virtualFile) {
-        return new SmartySyntaxHighlighter();
+        return new SmartySyntaxHighlighter(com.smartyplugin.lang.SmartyDelimiters.of(project));
     }
 }

@@ -31,8 +31,12 @@ public final class SmartyEnterHandler extends EnterHandlerDelegateAdapter {
         Document doc = editor.getDocument();
         CharSequence text = doc.getCharsSequence();
         int offset = caretOffset.get();
-        if (offset <= 0 || offset + 1 >= text.length()) return Result.Continue;
-        if (text.charAt(offset - 1) != '}' || text.charAt(offset) != '{' || text.charAt(offset + 1) != '/') {
+        com.smartyplugin.lang.SmartyDelimiters d = com.smartyplugin.lang.SmartyDelimiters.of(file.getProject());
+        String before = d.right();
+        String after = d.left() + "/";
+        if (offset < before.length() || offset + after.length() > text.length()) return Result.Continue;
+        if (!text.subSequence(offset - before.length(), offset).toString().equals(before)
+                || !text.subSequence(offset, offset + after.length()).toString().equals(after)) {
             return Result.Continue;
         }
         PsiDocumentManager.getInstance(file.getProject()).commitDocument(doc);

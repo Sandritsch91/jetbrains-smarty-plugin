@@ -25,14 +25,14 @@ public final class SmartyAnnotator implements Annotator {
             ASTNode open = SmartyPsiUtil.openTag(node);
             String name = SmartyPsiUtil.blockName(node);
             if (open != null && name != null) {
-                holder.newAnnotation(HighlightSeverity.ERROR, "Missing closing tag {/" + name + "}")
+                holder.newAnnotation(HighlightSeverity.ERROR, "Missing closing tag " + d(element).closeTag(name))
                         .range(open.getTextRange())
                         .create();
             }
         } else if (type == CLOSE_TAG && !SmartyPsiUtil.is(node.getTreeParent(), BLOCK)) {
             String name = SmartyPsiUtil.tagName(node);
             holder.newAnnotation(HighlightSeverity.ERROR,
-                            name == null ? "Closing tag without a name" : "Closing tag {/" + name + "} has no matching opening tag")
+                            name == null ? "Closing tag without a name" : "Closing tag " + d(element).closeTag(name) + " has no matching opening tag")
                     .range(node.getTextRange())
                     .create();
         } else if (type == MIDDLE_TAG) {
@@ -41,7 +41,7 @@ public final class SmartyAnnotator implements Annotator {
             String blockName = SmartyPsiUtil.is(parent, BLOCK) ? SmartyPsiUtil.blockName(parent) : null;
             if (name != null && !SmartyTags.isMiddleAllowed(blockName, name)) {
                 holder.newAnnotation(HighlightSeverity.ERROR,
-                                "{" + name + "} is only allowed inside " + describeParents(name))
+                                d(element).tag(name) + " is only allowed inside " + describeParents(name, d(element)))
                         .range(node.getTextRange())
                         .create();
             }
@@ -59,16 +59,21 @@ public final class SmartyAnnotator implements Annotator {
             IElementType t = c.getElementType();
             if (t != com.intellij.psi.TokenType.WHITE_SPACE && t != com.smartyplugin.lexer.SmartyTokenTypes.RDELIM) return;
         }
-        holder.newAnnotation(HighlightSeverity.ERROR, "{" + name + "} requires a condition")
+        holder.newAnnotation(HighlightSeverity.ERROR, d(tag.getPsi()).tag(name) + " requires a condition")
                 .range(TextRange.from(tag.getStartOffset(), tag.getTextLength()))
                 .create();
     }
 
-    private static String describeParents(String middle) {
+    /** The project's delimiters, for messages like "Missing closing tag {/if}". */
+    private static com.smartyplugin.lang.SmartyDelimiters d(com.intellij.psi.PsiElement element) {
+        return com.smartyplugin.lang.SmartyDelimiters.of(element);
+    }
+
+    private static String describeParents(String middle, com.smartyplugin.lang.SmartyDelimiters d) {
         StringBuilder sb = new StringBuilder();
         for (String parent : SmartyTags.allowedParentsOfMiddle(middle)) {
             if (!sb.isEmpty()) sb.append(" / ");
-            sb.append('{').append(parent).append('}');
+            sb.append(d.tag(parent));
         }
         return sb.toString();
     }

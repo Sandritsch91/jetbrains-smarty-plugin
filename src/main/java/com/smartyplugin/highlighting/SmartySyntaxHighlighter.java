@@ -86,11 +86,21 @@ public final class SmartySyntaxHighlighter extends SyntaxHighlighterBase {
         KEYS.put(BAD_CHARACTER, BAD_CHAR);
     }
 
+    private final com.smartyplugin.lang.SmartyDelimiters delimiters;
+
+    public SmartySyntaxHighlighter() {
+        this(com.smartyplugin.lang.SmartyDelimiters.DEFAULT);
+    }
+
+    public SmartySyntaxHighlighter(@NotNull com.smartyplugin.lang.SmartyDelimiters delimiters) {
+        this.delimiters = delimiters;
+    }
+
     /** The Smarty lexer, with double-quoted strings split into text and embedded variables / tags. */
     @Override
     public @NotNull Lexer getHighlightingLexer() {
-        LayeredLexer lexer = new LayeredLexer(new SmartyLexer());
-        lexer.registerLayer(new SmartyStringLexer(), STRING);
+        LayeredLexer lexer = new LayeredLexer(new SmartyLexer(delimiters));
+        lexer.registerLayer(new SmartyStringLexer(delimiters), STRING);
         return lexer;
     }
 

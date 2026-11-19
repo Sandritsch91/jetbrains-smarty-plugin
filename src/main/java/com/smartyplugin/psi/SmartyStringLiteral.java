@@ -53,7 +53,8 @@ public final class SmartyStringLiteral extends SmartyPsiElement {
         if (text.length() < 2) return PsiReference.EMPTY_ARRAY;
         String value = getValue();
         // dynamic paths and resource prefixes ("file:", "string:", "extends:") are not resolvable statically
-        if (value.isEmpty() || value.contains("$") || value.contains("{") || value.contains("`")
+        if (value.isEmpty() || value.contains("$") || value.contains(com.smartyplugin.lang.SmartyDelimiters.of(this).left())
+                || value.contains("`")
                 || value.matches("^[a-zA-Z_]+:.*")) {
             return PsiReference.EMPTY_ARRAY;
         }

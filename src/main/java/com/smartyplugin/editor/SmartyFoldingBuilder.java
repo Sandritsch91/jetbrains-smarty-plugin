@@ -50,11 +50,14 @@ public final class SmartyFoldingBuilder extends FoldingBuilderEx implements Dumb
     @Override
     public @Nullable String getPlaceholderText(@NotNull ASTNode node) {
         if (node.getElementType() == COMMENT) {
-            String text = node.getText().substring(2).trim();
+            com.smartyplugin.lang.SmartyDelimiters d = com.smartyplugin.lang.SmartyDelimiters.of(node.getPsi());
+            String text = node.getText();
+            if (text.startsWith(d.commentStart())) text = text.substring(d.commentStart().length());
+            text = text.trim();
             int nl = text.indexOf('\n');
-            String first = (nl < 0 ? text : text.substring(0, nl)).replace("*}", "").trim();
+            String first = (nl < 0 ? text : text.substring(0, nl)).replace(d.commentEnd(), "").trim();
             if (first.length() > 40) first = first.substring(0, 40) + "…";
-            return "{* " + first + " … *}";
+            return d.commentStart() + " " + first + " … " + d.commentEnd();
         }
         return "…";
     }

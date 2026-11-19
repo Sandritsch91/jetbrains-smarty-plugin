@@ -5,6 +5,7 @@ import com.intellij.lang.PsiBuilder;
 import com.intellij.lang.PsiParser;
 import com.intellij.lang.WhitespacesBinders;
 import com.intellij.psi.tree.IElementType;
+import com.smartyplugin.lang.SmartyDelimiters;
 import com.smartyplugin.lang.SmartyTags;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -27,7 +28,18 @@ import static com.smartyplugin.parser.SmartyElementTypes.*;
 public final class SmartyParser implements PsiParser {
     /** yii2-smarty blocks whose content is JavaScript / CSS: their text becomes CODE_TEXT injection hosts. */
     private static final Set<String> CODE_BLOCKS = Set.of("registerJs", "registerCss");
-    private static final Pattern CLOSE_TAG_PATTERN = Pattern.compile("\\{/([A-Za-z_][A-Za-z0-9_]*)\\s*}");
+    private final Pattern closeTagPattern;
+    private final String rightDelimiter;
+
+    public SmartyParser() {
+        this(SmartyDelimiters.DEFAULT);
+    }
+
+    public SmartyParser(@NotNull SmartyDelimiters delimiters) {
+        closeTagPattern = Pattern.compile(Pattern.quote(delimiters.left()) + "/([A-Za-z_][A-Za-z0-9_]*)\\s*"
+                + Pattern.quote(delimiters.right()));
+        rightDelimiter = delimiters.right();
+    }
 
     private record TagInfo(boolean close, @Nullable String name) {
     }
@@ -50,9 +62,9 @@ public final class SmartyParser implements PsiParser {
         return builder.getTreeBuilt();
     }
 
-    private static Set<String> collectClosedNames(CharSequence text) {
+    private Set<String> collectClosedNames(CharSequence text) {
         Set<String> names = new HashSet<>();
-        Matcher m = CLOSE_TAG_PATTERN.matcher(text);
+        Matcher m = closeTagPattern.matcher(text);
         while (m.find()) names.add(m.group(1));
         return names;
     }
@@ -144,7 +156,7 @@ public final class SmartyParser implements PsiParser {
         if (b.getTokenType() == RDELIM) {
             b.advanceLexer();
         } else {
-            b.error("'}' expected");
+            b.error("'" + rightDelimiter + "' expected");
         }
         m.done(type);
     }

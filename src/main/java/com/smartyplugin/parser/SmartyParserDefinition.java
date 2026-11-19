@@ -20,12 +20,12 @@ import org.jetbrains.annotations.NotNull;
 public final class SmartyParserDefinition implements ParserDefinition {
     @Override
     public @NotNull Lexer createLexer(Project project) {
-        return new SmartyLexer();
+        return new SmartyLexer(com.smartyplugin.lang.SmartyDelimiters.of(project));
     }
 
     @Override
     public @NotNull PsiParser createParser(Project project) {
-        return new SmartyParser();
+        return new SmartyParser(com.smartyplugin.lang.SmartyDelimiters.of(project));
     }
 
     @Override

@@ -10,6 +10,7 @@ import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiFileFactory;
+import com.smartyplugin.lang.SmartyDelimiters;
 import com.smartyplugin.lang.SmartyFileViewProvider;
 import com.smartyplugin.lang.SmartyLanguage;
 import com.smartyplugin.psi.SmartyPsiUtil;
@@ -53,30 +54,41 @@ public final class SmartyTypedHandler extends TypedHandlerDelegate {
     @Override
     public @NotNull Result charTyped(char c, @NotNull Project project, @NotNull Editor editor, @NotNull PsiFile file) {
         if (!(file.getViewProvider() instanceof SmartyFileViewProvider)) return Result.CONTINUE;
-        if (c == '/') return completeCloseTag(project, editor, file);
-        if (c == '}') return insertCloseTag(project, editor, file);
+        SmartyDelimiters d = SmartyDelimiters.of(project);
+        if (c == '/') return completeCloseTag(project, editor, d);
+        if (endsWith(editor, d.right())) return insertCloseTag(project, editor, file, d);
         if (c == '$' || c == '|') return scheduleAutoPopup(project, editor, file);
         if (c == '>' && previousCharIs(editor, '-')) return scheduleAutoPopup(project, editor, file);
         if (c == ':' && previousCharIs(editor, ':')) return scheduleAutoPopup(project, editor, file);
         return Result.CONTINUE;
     }
 
-    private static Result completeCloseTag(Project project, Editor editor, PsiFile file) {
+    /** The text right before the caret is {@code s} (just completed by the typed character). */
+    private static boolean endsWith(Editor editor, String s) {
+        int offset = editor.getCaretModel().getOffset();
+        CharSequence text = editor.getDocument().getCharsSequence();
+        return offset >= s.length() && text.subSequence(offset - s.length(), offset).toString().equals(s);
+    }
+
+    private static Result completeCloseTag(Project project, Editor editor, SmartyDelimiters d) {
         Document doc = editor.getDocument();
         int offset = editor.getCaretModel().getOffset();
         CharSequence text = doc.getCharsSequence();
-        if (offset < 2 || text.charAt(offset - 2) != '{') return Result.CONTINUE;
+        String opener = d.left() + "/";
+        if (!endsWith(editor, opener)) return Result.CONTINUE;
         if (offset < text.length() && Character.isLetter(text.charAt(offset))) return Result.CONTINUE;
 
         // Decide on the text without the "{/" just typed: an unfinished tag would otherwise swallow
         // the rest of the file and make every block look unclosed.
-        String withoutTyped = text.subSequence(0, offset - 2).toString() + text.subSequence(offset, text.length());
-        String name = unclosedBlockNameAt(project, withoutTyped, offset - 2);
+        int start = offset - opener.length();
+        String withoutTyped = text.subSequence(0, start).toString() + text.subSequence(offset, text.length());
+        String name = unclosedBlockNameAt(project, withoutTyped, start);
         if (name == null) return Result.CONTINUE;
 
-        boolean hasBrace = offset < text.length() && text.charAt(offset) == '}';
-        doc.insertString(offset, hasBrace ? name : name + "}");
-        editor.getCaretModel().moveToOffset(offset + name.length() + 1);
+        boolean hasBrace = text.subSequence(offset, Math.min(text.length(), offset + d.right().length()))
+                .toString().equals(d.right());
+        doc.insertString(offset, hasBrace ? name : name + d.right());
+        editor.getCaretModel().moveToOffset(offset + name.length() + d.right().length());
         return Result.STOP;
     }
 
@@ -99,7 +111,7 @@ public final class SmartyTypedHandler extends TypedHandlerDelegate {
         return SmartyPsiUtil.blockName(node);
     }
 
-    private static Result insertCloseTag(Project project, Editor editor, PsiFile file) {
+    private static Result insertCloseTag(Project project, Editor editor, PsiFile file, SmartyDelimiters d) {
         Document doc = editor.getDocument();
         int offset = editor.getCaretModel().getOffset();
         PsiDocumentManager.getInstance(project).commitDocument(doc);
@@ -111,7 +123,7 @@ public final class SmartyTypedHandler extends TypedHandlerDelegate {
         if (!SmartyPsiUtil.is(block, BLOCK) || SmartyPsiUtil.closeTag(block.getNode()) != null) return Result.CONTINUE;
         String name = SmartyPsiUtil.blockName(block.getNode());
         if (name == null) return Result.CONTINUE;
-        doc.insertString(offset, "{/" + name + "}");
+        doc.insertString(offset, d.closeTag(name));
         return Result.STOP;
     }
 }
