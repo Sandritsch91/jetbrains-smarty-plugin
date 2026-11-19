@@ -60,6 +60,29 @@ public class SmartyLexerTest extends TestCase {
                 lex("{#title#}{$i@first}{$a|@count}"));
     }
 
+    public void testStringContainingBraces() {
+        assertEquals("LDELIM({) TAG_NAME(x) ATTR_NAME(js) ASSIGN(=) STRING('function () { return {q: true}; }') "
+                        + "ATTR_NAME(b) ASSIGN(=) NUMBER(1) RDELIM(})",
+                lex("{x js='function () { return {q: true}; }' b=1}"));
+        assertEquals("LDELIM({) TAG_NAME(x) ATTR_NAME(js) ASSIGN(=) STRING(\"a } b\") RDELIM(})",
+                lex("{x js=\"a } b\"}"));
+    }
+
+    public void testMultiLineString() {
+        assertEquals("LDELIM({) TAG_NAME(x) ATTR_NAME(a) ASSIGN(=) STRING('one\ntwo') RDELIM(})",
+                lex("{x a='one\ntwo'}"));
+    }
+
+    public void testDoubleQuotedStringWithEmbeddedTag() {
+        assertEquals("LDELIM({) TAG_NAME(x) ATTR_NAME(a) ASSIGN(=) STRING(\"Hi {$name|default:\"you\"}!\") RDELIM(})",
+                lex("{x a=\"Hi {$name|default:\"you\"}!\"}"));
+    }
+
+    public void testUnterminatedStringStopsAtTagEnd() {
+        assertEquals("LDELIM({) VARIABLE($a) PIPE(|) MODIFIER_NAME(default) COLON(:) STRING('x) RDELIM(}) TEMPLATE_TEXT(<p>done</p>)",
+                lex("{$a|default:'x}<p>done</p>"));
+    }
+
     public void testRestartFromAnyState() {
         String text = "<p>{if $a}x{literal}{y}{/literal}{$b|upper}{/if}</p>";
         SmartyLexer full = new SmartyLexer();

@@ -45,6 +45,33 @@ public class SmartyEditingTest extends BasePlatformTestCase {
         myFixture.checkHighlighting(false, false, false);
     }
 
+    /** Yii2 widget call with PHP arrays, static calls, a nested tag and JS code in strings. */
+    public void testYiiWidgetWithJsInStrings() {
+        myFixture.configureByText("widget.tpl", """
+                <div class="mb-3">
+                    <label for="icon" class="form-label">{'Icon'|t:'hq-re/notifications'}</label>
+                    {Select2 name='icon'
+                        theme=Select2::THEME_BOOTSTRAP id='icon' pluginOptions=[
+                        'allowClear' => true,
+                        'minimumInputLength' => 3,
+                        'ajax' => [
+                            'url' => {url route="list"},
+                            'dataType' => 'json',
+                            'data' => Yii::createObject('\\yii\\web\\JsExpression', [
+                                'function (params) { return {q: params.term, iconOnly: true}; }'
+                            ])
+                        ],
+                        'escapeMarkup' => Yii::createObject('\\yii\\web\\JsExpression', ['function (markup) { return markup; }']),
+                        'templateResult' => Yii::createObject('\\yii\\web\\JsExpression', ['function (symbol) { return symbol.text; }'])
+                    ]}
+                </div>
+                """);
+        PsiFile smarty = myFixture.getFile().getViewProvider().getPsi(SmartyLanguage.INSTANCE);
+        PsiErrorElement error = PsiTreeUtil.findChildOfType(smarty, PsiErrorElement.class);
+        assertNull(error == null ? null : error.getErrorDescription() + " at " + error.getTextOffset(), error);
+        myFixture.checkHighlighting(false, false, false);
+    }
+
     public void testStructuralErrors() {
         myFixture.configureByText("bad.tpl",
                 "<error descr=\"Missing closing tag {/if}\">{if $a}</error>\n" +

@@ -305,8 +305,43 @@ public final class SmartyLexer extends LexerBase {
         }
     }
 
-    /** Strings end at the matching quote; an unterminated string stops at the end of the line or tag. */
+    /**
+     * Strings end at the matching quote, so they may contain <code>}</code> and line breaks
+     * (<code>'function () { return {a: 1}; }'</code>). Only a string that is never closed stops early,
+     * at the end of the line or tag, so that a missing quote does not swallow the rest of the file.
+     */
     private int scanString(int p, char quote) {
+        int end = scanTerminatedString(p, quote);
+        return end >= 0 ? end : scanUnterminatedString(p, quote);
+    }
+
+    /** End offset after the closing quote, or -1 when the string is not closed. */
+    private int scanTerminatedString(int p, char quote) {
+        int q = p + 1;
+        int tags = 0; // tags embedded in a double-quoted string ("Hi {$name|default:"you"}") may contain quotes
+        while (q < bufferEnd) {
+            char ch = charAt(q);
+            if (ch == '\\') {
+                q += 2;
+                continue;
+            }
+            if (quote == '"') {
+                if (ch == '{' && startsEmbeddedTag(q + 1)) tags++;
+                else if (ch == '}' && tags > 0) tags--;
+            }
+            if (ch == quote && tags == 0) return q + 1;
+            q++;
+        }
+        return -1;
+    }
+
+    private boolean startsEmbeddedTag(int q) {
+        if (q >= bufferEnd) return false;
+        char ch = charAt(q);
+        return ch == '$' || ch == '/' || ch == '#' || Character.isLetter(ch);
+    }
+
+    private int scanUnterminatedString(int p, char quote) {
         int q = p + 1;
         int braces = 0;
         while (q < bufferEnd) {
@@ -315,11 +350,10 @@ public final class SmartyLexer extends LexerBase {
                 q += 2;
                 continue;
             }
-            if (ch == quote) return q + 1;
             if (ch == '\n') return q;
             if (quote == '"' && ch == '{') braces++;
             if (ch == '}') {
-                if (braces == 0) return q; // unterminated: don't swallow the tag end
+                if (braces == 0) return q; // don't swallow the tag end
                 braces--;
             }
             q++;
