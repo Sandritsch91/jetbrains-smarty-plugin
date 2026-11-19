@@ -172,11 +172,12 @@ public final class SmartyCompletionContributor extends CompletionContributor {
     private static void completeAttributes(PsiElement position, CompletionResultSet rs) {
         ASTNode tag = SmartyPsiUtil.enclosingTag(position.getNode());
         if (tag == null) return;
-        // only at attribute-name positions: directly in the tag or as the name of an attribute
+        // only at attribute-name positions: the name of an attribute, or a new word after the tag name or a value
         ASTNode parent = position.getNode().getTreeParent();
-        if (parent != tag && !(parent.getElementType() == ATTRIBUTE && parent.getFirstChildNode() == position.getNode())) {
-            return;
-        }
+        boolean attributeName = parent.getElementType() == ATTRIBUTE && parent.getFirstChildNode() == position.getNode();
+        if (!attributeName && !SmartyPsiUtil.isAttributeNamePosition(position)) return;
+        ASTNode attributeTag = SmartyPsiUtil.enclosingAttributeTag(position);
+        if (attributeTag != null) tag = attributeTag;
         SmartyTags.Tag info = SmartyTags.tag(SmartyPsiUtil.tagName(tag));
         if (info == null) return;
         Set<String> present = new LinkedHashSet<>();

@@ -47,7 +47,7 @@ public final class SmartyPhpCompletionContributor extends CompletionContributor 
         CompletionResultSet rs = result.withPrefixMatcher(prefix);
         Project project = position.getProject();
 
-        if (SmartyPhpWidgets.isAttributeNamePosition(position, separator)) {
+        if (com.smartyplugin.psi.SmartyPsiUtil.isAttributeNamePosition(position)) {
             List<PhpClass> widget = SmartyPhpWidgets.widgetClasses(position);
             if (!widget.isEmpty()) {
                 SmartyPhpWidgets.completeAttributes(position, widget, project, rs);

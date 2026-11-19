@@ -204,12 +204,12 @@ public final class SmartyLexer extends LexerBase {
                 }
             } else if (afterPipe) {
                 tokenType = MODIFIER_NAME;
+            } else if (!isMemberAccess(p) && isFollowedByAssign(q)) {
+                tokenType = ATTR_NAME; // before keywords: {use class="X" as="Y"}
             } else if (KEYWORDS.contains(word) && !isMemberAccess(p)) {
                 tokenType = KEYWORD;
             } else if (CONSTANTS.contains(word) && !isMemberAccess(p)) {
                 tokenType = CONSTANT;
-            } else if (!isMemberAccess(p) && isFollowedByAssign(q)) {
-                tokenType = ATTR_NAME;
             } else {
                 tokenType = IDENTIFIER;
             }

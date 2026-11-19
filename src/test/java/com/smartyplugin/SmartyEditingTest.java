@@ -72,6 +72,51 @@ public class SmartyEditingTest extends BasePlatformTestCase {
         myFixture.checkHighlighting(false, false, false);
     }
 
+    /** Functions, blocks and modifiers of yiisoft/yii2-smarty. */
+    public void testYiiSmartyExtension() {
+        myFixture.configureByText("yii.tpl", """
+                {use class="yii\\bootstrap5\\Html" as="BsHtml" type="static"}
+                {set title='Home' layout='main'}
+                {title}Home{/title}
+                {description}All about us{/description}
+                {meta name='robots' content='noindex'}
+                {js expression='function () {}' assign='handler'}
+                {registerJsFile url='/js/app.js' position='POS_END'}
+                {registerJs key='init' position='POS_READY'}console.log(1);{/registerJs}
+                {registerCssFile url='/css/app.css'}
+                {registerCss}body { color: red; }{/registerCss}
+                <a href="{url route='site/index' id=3}">{path route='site/about'}</a>
+                {$this->beginPage()|void}
+                """);
+        PsiFile smarty = myFixture.getFile().getViewProvider().getPsi(SmartyLanguage.INSTANCE);
+        PsiErrorElement error = PsiTreeUtil.findChildOfType(smarty, PsiErrorElement.class);
+        assertNull(error == null ? null : error.getErrorDescription(), error);
+        myFixture.checkHighlighting(false, false, false);
+    }
+
+    public void testYiiTagCompletion() {
+        myFixture.configureByText("c.tpl", "{regis<caret>");
+        myFixture.completeBasic();
+        List<String> items = myFixture.getLookupElementStrings();
+        assertNotNull(items);
+        assertTrue(items.toString(), items.containsAll(List.of("registerJs", "registerJsFile", "registerCss", "registerCssFile")));
+    }
+
+    public void testYiiBlockWithoutArgumentsInsertsClosingTag() {
+        myFixture.configureByText("c.tpl", "{titl<caret>");
+        myFixture.completeBasic();
+        myFixture.checkResult("{title}<caret>{/title}");
+    }
+
+    public void testYiiAttributesAndModifier() {
+        myFixture.configureByText("c.tpl", "{use class='x' a<caret>}");
+        myFixture.completeBasic();
+        myFixture.checkResult("{use class='x' as=<caret>}");
+        myFixture.configureByText("d.tpl", "{$x|voi<caret>}");
+        myFixture.completeBasic();
+        myFixture.checkResult("{$x|void<caret>}");
+    }
+
     public void testStructuralErrors() {
         myFixture.configureByText("bad.tpl",
                 "<error descr=\"Missing closing tag {/if}\">{if $a}</error>\n" +

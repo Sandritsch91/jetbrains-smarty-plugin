@@ -98,16 +98,20 @@ public final class SmartyTags {
         inline("break", "Leave the current loop", false);
         inline("continue", "Skip to the next loop iteration", false);
 
-        // ---- Yii2 smarty extension (yiisoft/yii2-smarty)
-        yii("url", "Create a URL for a route (Yii2)", "route");
-        yii("path", "Create a relative URL for a route (Yii2)", "route");
-        yii("use", "Import a class as a function or block (Yii2)", "class", "type");
-        yii("set", "Set view properties such as the layout (Yii2)", "layout", "title", "theme");
-        yii("meta", "Register a meta tag (Yii2)", "keywords", "description", "name", "content");
-        yii("title", "Set the page title (Yii2)");
-        yii("description", "Set the page description (Yii2)");
+        // ---- Yii2 smarty extension (yiisoft/yii2-smarty, yii\smarty\Extension)
+        yii("url", "Absolute URL for a route; other attributes become URL parameters (Yii2)", "route");
+        yii("path", "Relative URL for a route; other attributes become URL parameters (Yii2)", "route");
+        yii("use", "Import a class: static calls, or a widget as function/block (Yii2)", "class", "as", "type");
+        yii("set", "Set the view title, theme or the controller layout (Yii2)", "title", "theme", "layout");
+        yii("meta", "Register a meta tag; all attributes become tag attributes (Yii2)",
+                "name", "content", "keywords", "description", "http-equiv", "charset");
+        yii("js", "Assign a yii\\web\\JsExpression to a variable (Yii2)", "expression", "assign");
         yii("registerJsFile", "Register a JavaScript file (Yii2)", "url", "key", "depends", "position");
         yii("registerCssFile", "Register a CSS file (Yii2)", "url", "key", "depends", "media");
+        yiiBlock("title", "Set the page title to the block content (Yii2)", false);
+        yiiBlock("description", "Register the block content as meta description (Yii2)", false);
+        yiiBlock("registerJs", "Register the block content as JavaScript (Yii2)", true, "key", "position");
+        yiiBlock("registerCss", "Register the block content as CSS (Yii2)", true, "key");
 
         // ---- modifiers
         mod("capitalize", "[uc_digits:bool [, lc_rest:bool]]");
@@ -154,6 +158,7 @@ public final class SmartyTags {
         mod("var_dump", "", "PHP");
         mod("print_r", "", "PHP");
         mod("debug_print_var", "");
+        mod("void", "", "Yii2"); // yii\smarty\Extension: discard the output, e.g. {$this->beginPage()|void}
     }
 
     private SmartyTags() {
@@ -216,6 +221,10 @@ public final class SmartyTags {
 
     private static void yii(String name, String description, String... attrs) {
         TAGS.put(name, new Tag(name, Kind.INLINE, description, List.of(attrs), true, "Yii2"));
+    }
+
+    private static void yiiBlock(String name, String description, boolean args, String... attrs) {
+        TAGS.put(name, new Tag(name, Kind.BLOCK, description, List.of(attrs), args, "Yii2"));
     }
 
     private static void mod(String name, String signature) {

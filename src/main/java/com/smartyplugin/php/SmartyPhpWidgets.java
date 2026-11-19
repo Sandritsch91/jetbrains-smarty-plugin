@@ -7,9 +7,6 @@ import com.intellij.lang.ASTNode;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiElement;
-import com.intellij.psi.tree.IElementType;
-import com.intellij.psi.tree.TokenSet;
-import com.intellij.psi.util.PsiTreeUtil;
 import com.jetbrains.php.lang.psi.elements.Field;
 import com.jetbrains.php.lang.psi.elements.Method;
 import com.jetbrains.php.lang.psi.elements.Parameter;
@@ -30,49 +27,13 @@ import static com.smartyplugin.parser.SmartyElementTypes.*;
  * their attributes are the widget's public properties and setters.
  */
 final class SmartyPhpWidgets {
-    /** Tokens that end a value: an attribute name may follow them. */
-    private static final TokenSet VALUE_END = TokenSet.create(TAG_NAME, STRING, NUMBER, VARIABLE, IDENTIFIER, CONSTANT,
-            CONFIG_VAR, RBRACKET, RPAREN, RDELIM);
-
     private SmartyPhpWidgets() {
     }
 
-    /** The innermost tag around the element that can carry attributes ({x ...} or the opening tag of a block). */
-    static @Nullable ASTNode enclosingTag(@NotNull PsiElement element) {
-        for (ASTNode n = element.getNode().getTreeParent(); n != null; n = n.getTreeParent()) {
-            IElementType t = n.getElementType();
-            if (t == TAG || t == OPEN_TAG) return n;
-            if (TAGS.contains(t) || t == BLOCK_BODY) return null;
-        }
-        return null;
-    }
-
     static @NotNull List<PhpClass> widgetClasses(@NotNull PsiElement inside) {
-        ASTNode tag = enclosingTag(inside);
+        ASTNode tag = SmartyPsiUtil.enclosingAttributeTag(inside);
         ASTNode name = tag == null ? null : SmartyPsiUtil.tagNameNode(tag);
         return name == null ? List.of() : SmartyPhpClasses.resolveUsed(name.getPsi());
-    }
-
-    /**
-     * Whether a word typed here starts a new attribute: after the tag name or a complete value, separated by
-     * whitespace, and not inside brackets: "{Select2 name='x' th|" but not "{Select2 name=th|" or "[th|".
-     */
-    static boolean isAttributeNamePosition(@NotNull PsiElement position, @NotNull PsiElement prev) {
-        ASTNode tag = enclosingTag(position);
-        if (tag == null || !VALUE_END.contains(significantType(prev))) return false;
-        if (prev.getTextRange().getEndOffset() == position.getTextRange().getStartOffset()) return false;
-        int depth = 0;
-        for (PsiElement leaf = PsiTreeUtil.prevLeaf(position); leaf != null
-                && leaf.getTextRange().getStartOffset() >= tag.getStartOffset(); leaf = PsiTreeUtil.prevLeaf(leaf)) {
-            if (SmartyPsiUtil.is(leaf, RBRACKET) || SmartyPsiUtil.is(leaf, RPAREN)) depth--;
-            if (SmartyPsiUtil.is(leaf, LBRACKET) || SmartyPsiUtil.is(leaf, LPAREN)) depth++;
-        }
-        return depth <= 0;
-    }
-
-    /** A string literal's leaf is STRING; a nested tag ends with RDELIM. */
-    private static IElementType significantType(PsiElement prev) {
-        return prev.getNode().getElementType();
     }
 
     static void completeAttributes(@NotNull PsiElement position, @NotNull List<PhpClass> classes,
@@ -101,7 +62,7 @@ final class SmartyPhpWidgets {
 
     private static Set<String> presentAttributes(PsiElement position) {
         Set<String> names = new HashSet<>();
-        ASTNode tag = enclosingTag(position);
+        ASTNode tag = SmartyPsiUtil.enclosingAttributeTag(position);
         if (tag == null) return names;
         for (ASTNode c = tag.getFirstChildNode(); c != null; c = c.getTreeNext()) {
             if (c.getElementType() == ATTRIBUTE) {

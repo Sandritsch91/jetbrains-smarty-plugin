@@ -113,6 +113,43 @@ public final class SmartyPsiUtil {
         return vp.getPsi(SmartyLanguage.INSTANCE);
     }
 
+    /** Tokens that end a value: an attribute name may follow them. */
+    private static final com.intellij.psi.tree.TokenSet VALUE_END = com.intellij.psi.tree.TokenSet.create(
+            TAG_NAME, STRING, NUMBER, VARIABLE, IDENTIFIER, CONSTANT, CONFIG_VAR, RBRACKET, RPAREN, RDELIM);
+
+    /** The innermost tag around the element that can carry attributes ({x ...} or the opening tag of a block). */
+    public static @Nullable ASTNode enclosingAttributeTag(@NotNull PsiElement element) {
+        for (ASTNode n = element.getNode().getTreeParent(); n != null; n = n.getTreeParent()) {
+            IElementType t = n.getElementType();
+            if (t == TAG || t == OPEN_TAG) return n;
+            if (TAGS.contains(t) || t == BLOCK_BODY) return null;
+        }
+        return null;
+    }
+
+    /**
+     * Whether a word typed at {@code position} starts a new attribute: right after the tag name or after a complete
+     * value, separated by whitespace, and not inside brackets: "{x a='1' b|" but not "{x a=b|" or "{x a=[b|".
+     * (The parser attaches such a half-typed word to the previous attribute's value, so the tree can't tell.)
+     */
+    public static boolean isAttributeNamePosition(@NotNull PsiElement position) {
+        ASTNode tag = enclosingAttributeTag(position);
+        if (tag == null) return false;
+        PsiElement prev = com.intellij.psi.util.PsiTreeUtil.prevLeaf(position);
+        while (prev != null && (is(prev, WHITE_SPACE) || prev.getTextLength() == 0)) {
+            prev = com.intellij.psi.util.PsiTreeUtil.prevLeaf(prev);
+        }
+        if (prev == null || !VALUE_END.contains(prev.getNode().getElementType())) return false;
+        if (prev.getTextRange().getEndOffset() == position.getTextRange().getStartOffset()) return false;
+        int depth = 0;
+        for (PsiElement leaf = prev; leaf != null && leaf.getTextRange().getStartOffset() >= tag.getStartOffset();
+             leaf = com.intellij.psi.util.PsiTreeUtil.prevLeaf(leaf)) {
+            if (is(leaf, RBRACKET) || is(leaf, RPAREN)) depth--;
+            if (is(leaf, LBRACKET) || is(leaf, LPAREN)) depth++;
+        }
+        return depth <= 0;
+    }
+
     /** Smarty leaf at the given offset, even when the caret is in the template data (HTML) part. */
     public static @Nullable PsiElement smartyElementAt(@NotNull PsiFile file, int offset) {
         PsiFile smarty = file.getViewProvider().getPsi(SmartyLanguage.INSTANCE);

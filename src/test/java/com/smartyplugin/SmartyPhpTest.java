@@ -268,6 +268,19 @@ public class SmartyPhpTest extends BasePlatformTestCase {
         assertFalse(items.toString(), items.contains("hidden"));
     }
 
+    public void testUseAlias() {
+        addHtmlHelper();
+        configureTemplate("views/site/page.tpl", """
+                {use class="yii\\bootstrap5\\Html" as="BsHtml"}
+                {BsHtml::enc<caret>}
+                """);
+        myFixture.completeBasic();
+        myFixture.checkResult("""
+                {use class="yii\\bootstrap5\\Html" as="BsHtml"}
+                {BsHtml::encode(<caret>)}
+                """);
+    }
+
     public void testStaticCallInsideExpression() {
         addHtmlHelper();
         configureTemplate("views/site/page.tpl", """
