@@ -1,0 +1,65 @@
+<idea-plugin>
+    <id>com.smartyplugin.smarty</id>
+    <name>Smarty Templates</name>
+    <vendor>smartyplugin</vendor>
+
+    <description><![CDATA[
+    Support for <a href="https://www.smarty.net/">Smarty</a> templates (<code>.tpl</code>, <code>.smarty</code>):
+    <ul>
+      <li>Syntax highlighting of Smarty tags on top of full HTML/CSS/JavaScript highlighting</li>
+      <li>Completion of tags, closing tags, attributes, modifiers, variables and <code>$smarty</code> properties</li>
+      <li>Formatting: Smarty blocks are indented together with the surrounding HTML</li>
+      <li>Error highlighting for unclosed blocks and misplaced <code>{else}</code> tags</li>
+      <li>Folding, brace and tag-pair matching, <code>{* comments *}</code>, auto-closing of block tags</li>
+      <li>Ctrl+Click navigation for <code>{include}</code> / <code>{extends}</code> file paths</li>
+    </ul>
+    The template data language can be changed under Settings | Languages &amp; Frameworks | Template Data Languages.
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.xml</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <fileType name="Smarty template"
+                  implementationClass="com.smartyplugin.lang.SmartyFileType"
+                  fieldName="INSTANCE"
+                  language="SmartyTpl"
+                  extensions="tpl;smarty"/>
+        <lang.parserDefinition language="SmartyTpl"
+                               implementationClass="com.smartyplugin.parser.SmartyParserDefinition"/>
+        <lang.fileViewProviderFactory language="SmartyTpl"
+                                      implementationClass="com.smartyplugin.lang.SmartyFileViewProviderFactory"/>
+
+        <lang.syntaxHighlighterFactory language="SmartyTpl"
+                                       implementationClass="com.smartyplugin.highlighting.SmartySyntaxHighlighterFactory"/>
+        <editorHighlighterProvider filetype="Smarty template"
+                                   implementationClass="com.smartyplugin.highlighting.SmartyTemplateHighlighter$Provider"/>
+        <colorSettingsPage implementation="com.smartyplugin.highlighting.SmartyColorSettingsPage"/>
+
+        <annotator language="SmartyTpl" implementationClass="com.smartyplugin.editor.SmartyAnnotator"/>
+        <lang.foldingBuilder language="SmartyTpl" implementationClass="com.smartyplugin.editor.SmartyFoldingBuilder"/>
+        <lang.commenter language="SmartyTpl" implementationClass="com.smartyplugin.editor.SmartyCommenter"/>
+        <lang.braceMatcher language="SmartyTpl" implementationClass="com.smartyplugin.editor.SmartyBraceMatcher"/>
+        <quoteHandler fileType="Smarty template" className="com.smartyplugin.editor.SmartyQuoteHandler"/>
+        <typedHandler implementation="com.smartyplugin.editor.SmartyTypedHandler"/>
+        <enterHandlerDelegate implementation="com.smartyplugin.editor.SmartyEnterHandler"/>
+        <highlightUsagesHandlerFactory implementation="com.smartyplugin.editor.SmartyTagPairHighlighterFactory"/>
+
+        <completion.contributor language="SmartyTpl"
+                                implementationClass="com.smartyplugin.completion.SmartyCompletionContributor"/>
+
+        <lang.formatter language="SmartyTpl" implementationClass="com.smartyplugin.formatter.SmartyFormattingModelBuilder"/>
+
+        <lang.elementManipulator forClass="com.smartyplugin.psi.SmartyStringLiteral"
+                                 implementationClass="com.smartyplugin.psi.SmartyStringManipulator"/>
+
+        <internalFileTemplate name="Smarty File"/>
+    </extensions>
+
+    <actions>
+        <action id="Smarty.NewFile" class="com.smartyplugin.actions.CreateSmartyFileAction"
+                text="Smarty Template" description="Create a new Smarty template" icon="/icons/smarty.svg">
+            <add-to-group group-id="NewGroup" anchor="after" relative-to-action="NewHtmlFile"/>
+        </action>
+    </actions>
+</idea-plugin>
