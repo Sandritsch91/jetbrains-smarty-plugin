@@ -413,6 +413,76 @@ public class SmartyPhpTest extends BasePlatformTestCase {
         assertTrue(String.valueOf(items), items == null || !items.contains("language"));
     }
 
+    private void addActiveForm() {
+        myFixture.addFileToProject("vendor/yii/bootstrap5/ActiveForm.php", """
+                <?php
+                namespace yii\\bootstrap5;
+                class ActiveForm {
+                    public function errorSummary($models): string { return ''; }
+                    public function field($model, string $attribute): ActiveField { return new ActiveField(); }
+                }
+                class ActiveField {
+                    public function textInput(): self { return $this; }
+                }
+                """);
+    }
+
+    public void testBlockWidgetAssignType() {
+        addActiveForm();
+        configureTemplate("views/site/page.tpl", """
+                {use class="yii\\bootstrap5\\ActiveForm" type="block"}
+                {ActiveForm assign="form" id="notificationsForm"}
+                    {$form-><caret>}
+                {/ActiveForm}
+                """);
+        myFixture.completeBasic();
+        List<String> items = myFixture.getLookupElementStrings();
+        assertNotNull(items);
+        assertTrue(items.toString(), items.containsAll(List.of("errorSummary", "field")));
+    }
+
+    public void testBlockWidgetAssignChain() {
+        addActiveForm();
+        configureTemplate("views/site/page.tpl", """
+                {use class="yii\\bootstrap5\\ActiveForm" type="block"}
+                {ActiveForm assign="form"}
+                    {$form->field($model, 'title')->text<caret>}
+                {/ActiveForm}
+                """);
+        myFixture.completeBasic();
+        myFixture.checkResult("""
+                {use class="yii\\bootstrap5\\ActiveForm" type="block"}
+                {ActiveForm assign="form"}
+                    {$form->field($model, 'title')->textInput()<caret>}
+                {/ActiveForm}
+                """);
+    }
+
+    public void testGotoTemplateDefinitions() {
+        addActiveForm();
+        configureTemplate("views/site/page.tpl", """
+                {use class="yii\\bootstrap5\\ActiveForm" type="block"}
+                {ActiveForm assign="form"}
+                    {$form->errorSummary($model)}
+                {/ActiveForm}
+                {assign var="total" value=3}{$total}
+                {foreach $items as $row}{$row}{/foreach}
+                """);
+        String text = myFixture.getEditor().getDocument().getText();
+        PsiElement form = GotoDeclarationAction.findTargetElement(getProject(), myFixture.getEditor(),
+                text.indexOf("$form->") + 2);
+        assertNotNull(form);
+        assertEquals("\"form\"", form.getText());
+        PsiElement total = GotoDeclarationAction.findTargetElement(getProject(), myFixture.getEditor(),
+                text.indexOf("{$total}") + 3);
+        assertNotNull(total);
+        assertEquals("\"total\"", total.getText());
+        PsiElement row = GotoDeclarationAction.findTargetElement(getProject(), myFixture.getEditor(),
+                text.indexOf("{$row}") + 3);
+        assertNotNull(row);
+        assertEquals(text.indexOf("$row}{$row") , row.getTextRange().getStartOffset());
+    }
+
     private void assertTarget(int offset, Class<? extends com.jetbrains.php.lang.psi.elements.PhpNamedElement> type,
                               String name) {
         PsiElement target = GotoDeclarationAction.findTargetElement(getProject(), myFixture.getEditor(), offset);

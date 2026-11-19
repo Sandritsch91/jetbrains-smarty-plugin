@@ -71,7 +71,33 @@ final class SmartyPhpTypes {
         String name = variable.getText().substring(1);
         PhpType loopType = foreachItemType(variable, name);
         if (loopType != null) return loopType;
+        PhpType widgetType = blockWidgetType(variable, name);
+        if (widgetType != null) return widgetType;
         return passedType(variable.getContainingFile(), name);
+    }
+
+    /** {ActiveForm assign="form"}...{$form->field(...)}...{/ActiveForm}: Yii assigns the widget instance. */
+    private static @Nullable PhpType blockWidgetType(PsiElement variable, String name) {
+        for (ASTNode block = variable.getNode().getTreeParent(); block != null; block = block.getTreeParent()) {
+            if (block.getElementType() != BLOCK) continue;
+            ASTNode open = SmartyPsiUtil.openTag(block);
+            if (open == null || !name.equals(attribute(open, "assign"))) continue;
+            ASTNode tagName = SmartyPsiUtil.tagNameNode(open);
+            if (tagName == null) continue;
+            PhpType type = new PhpType();
+            for (PhpClass c : SmartyPhpClasses.resolveUsed(tagName.getPsi())) type.add(c.getFQN());
+            if (!type.getTypes().isEmpty()) return type;
+        }
+        return null;
+    }
+
+    private static @Nullable String attribute(ASTNode tag, String attributeName) {
+        for (ASTNode c = tag.getFirstChildNode(); c != null; c = c.getTreeNext()) {
+            if (c.getElementType() == ATTRIBUTE && attributeName.equals(SmartyPsiUtil.attributeName(c))) {
+                return SmartyPsiUtil.attributeValue(c);
+            }
+        }
+        return null;
     }
 
     static @Nullable PhpType passedType(@NotNull PsiFile template, @NotNull String name) {
