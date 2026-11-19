@@ -67,8 +67,9 @@ intellijPlatform {
     // ./gradlew verifyPlugin: JetBrains Plugin Verifier against PhpStorm, a newer IDEA and the IDEA build used for compiling.
     pluginVerification {
         ides {
-            create(IntelliJPlatformType.PhpStorm, providers.gradleProperty("verifyPhpStormVersion").get())
-            create(IntelliJPlatformType.IntellijIdeaUltimate, providers.gradleProperty("verifyIdeaVersion").get())
+            fun versions(name: String) = providers.gradleProperty(name).get().split(",").map { it.trim() }.filter { it.isNotEmpty() }
+            versions("verifyPhpStormVersions").forEach { create(IntelliJPlatformType.PhpStorm, it) }
+            versions("verifyIdeaVersions").forEach { create(IntelliJPlatformType.IntellijIdeaUltimate, it) }
             val localPath = providers.gradleProperty("platformLocalPath").orNull
             if (!localPath.isNullOrBlank() && file(localPath).exists()) local(localPath)
         }
