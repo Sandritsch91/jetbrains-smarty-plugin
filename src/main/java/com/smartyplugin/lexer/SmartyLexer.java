@@ -32,6 +32,8 @@ public final class SmartyLexer extends LexerBase {
     private static final int AFTER_PIPE = 0x4;
     private static final int LITERAL_TAG = 0x8;
     private static final int DEPTH_SHIFT = 4;
+    /** Inside a tag, after its name: lexes a bare expression such as the "$a.b" of "`$a.b`" in a string. */
+    public static final int EXPRESSION_STATE = TAG | (1 << DEPTH_SHIFT);
 
     private static final String LITERAL_END = "{/literal}";
 

@@ -60,6 +60,7 @@ public final class SmartyColorSettingsPage implements ColorSettingsPage {
                     {/foreach}
                     </ul>
                   {/if}
+                  {include file="partials/greeting.tpl" text="Hello $name, `$user.email` has {$count|default:0} new messages"}
                 {/block}""";
     }
 

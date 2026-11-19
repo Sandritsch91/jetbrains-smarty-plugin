@@ -1,5 +1,6 @@
 package com.smartyplugin.highlighting;
 
+import com.intellij.lexer.LayeredLexer;
 import com.intellij.lexer.Lexer;
 import com.intellij.openapi.editor.DefaultLanguageHighlighterColors;
 import com.intellij.openapi.editor.HighlighterColors;
@@ -7,6 +8,7 @@ import com.intellij.openapi.editor.colors.TextAttributesKey;
 import com.intellij.openapi.fileTypes.SyntaxHighlighterBase;
 import com.intellij.psi.tree.IElementType;
 import com.smartyplugin.lexer.SmartyLexer;
+import com.smartyplugin.lexer.SmartyStringLexer;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.HashMap;
@@ -55,6 +57,7 @@ public final class SmartySyntaxHighlighter extends SyntaxHighlighterBase {
         KEYS.put(LDELIM, DELIMITER);
         KEYS.put(RDELIM, DELIMITER);
         KEYS.put(SLASH, DELIMITER);
+        KEYS.put(BACKTICK, DELIMITER);
         KEYS.put(TAG_NAME, TAG_NAME_KEY);
         KEYS.put(ATTR_NAME, ATTRIBUTE);
         KEYS.put(MODIFIER_NAME, MODIFIER_KEY);
@@ -83,9 +86,12 @@ public final class SmartySyntaxHighlighter extends SyntaxHighlighterBase {
         KEYS.put(BAD_CHARACTER, BAD_CHAR);
     }
 
+    /** The Smarty lexer, with double-quoted strings split into text and embedded variables / tags. */
     @Override
     public @NotNull Lexer getHighlightingLexer() {
-        return new SmartyLexer();
+        LayeredLexer lexer = new LayeredLexer(new SmartyLexer());
+        lexer.registerLayer(new SmartyStringLexer(), STRING);
+        return lexer;
     }
 
     @Override

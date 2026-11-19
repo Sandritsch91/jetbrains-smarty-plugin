@@ -46,6 +46,9 @@ public interface SmartyTokenTypes {
     IElementType LBRACKET = new SmartyTokenType("LBRACKET");
     IElementType RBRACKET = new SmartyTokenType("RBRACKET");
 
+    /** Delimits an expression embedded in a double-quoted string: "Hello `$user.name`". Highlighting only. */
+    IElementType BACKTICK = new SmartyTokenType("BACKTICK");
+
     IElementType WHITE_SPACE = TokenType.WHITE_SPACE;
     IElementType BAD_CHARACTER = TokenType.BAD_CHARACTER;
 

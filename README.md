@@ -6,7 +6,7 @@ An IntelliJ Platform plugin for Smarty 3/4/5 templates (`.tpl`, `.smarty`).
 
 | Area | What you get |
 |---|---|
-| Highlighting | Smarty tags, variables, modifiers, attributes, strings, operators, `{* comments *}` on top of full HTML/CSS/JS highlighting. Colors are configurable in *Settings, Editor, Color Scheme, Smarty*. |
+| Highlighting | Smarty tags, variables, modifiers, attributes, strings, operators, `{* comments *}` on top of full HTML/CSS/JS highlighting. Inside double-quoted strings, embedded `$variables`, `` `$backtick.expressions` `` and `{$tags|modifiers}` are highlighted like code. Colors are configurable in *Settings, Editor, Color Scheme, Smarty*. |
 | Completion | Tag names (block tags insert their `{/tag}`), closing tags (innermost open block first), attributes per tag, modifiers, `$variables` used or assigned in the file, `$smarty.*`, `@iteration`-style loop properties. A few Yii2 tags (`url`, `use`, `set`, ...) are included. |
 | Formatting | *Reformat Code* formats the HTML and indents Smarty block bodies (`{if}`, `{foreach}`, `{block}`, custom block plugins) together with it. Inside tags it normalises spacing (`{if $a==1}` → `{if $a == 1}`, `{include file="x"   title=$t }` → `{include file="x" title=$t}`, `{$a | escape}` → `{$a\|escape}`) and indents multi-line tags: continuation lines one level, the contents of `[...]` / `(...)` one more. Line breaks are kept; modifier arguments, `$var=` assignments and `.` are left as written. |
 | Errors | Unclosed blocks, stray closing tags, misplaced `{else}` / `{elseif}` / `{foreachelse}`, `{if}` without a condition. |
@@ -48,7 +48,6 @@ Install the zip in the IDE via *Settings, Plugins, ⚙, Install Plugin from Disk
 ## Limitations
 
 - Default delimiters `{` `}` only. Custom `left_delimiter` / `right_delimiter` are not supported yet.
-- Variables inside double-quoted strings (`"Hello {$name}"`) are highlighted as part of the string.
 - No PHP-side resolution (variables assigned from PHP controllers are not known).
 - JetBrains ships its own *Smarty* plugin (bundled in PhpStorm, optional in IntelliJ IDEA Ultimate). Both register `.tpl`; when both are enabled this plugin takes `.tpl` and the IDE may show a notice about the reassignment. To go back, pick *Smarty* for `*.tpl` in *Settings, Editor, File Types*, or disable one of the plugins.
 
