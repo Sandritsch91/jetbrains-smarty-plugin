@@ -27,6 +27,7 @@
 
     <extensions defaultExtensionNs="com.intellij">
         <gotoDeclarationHandler implementation="com.smartyplugin.editor.SmartyGotoDeclarationHandler"/>
+        <multiHostInjector implementation="com.smartyplugin.editor.SmartyCodeBlockInjector"/>
         <fileType name="Smarty template"
                   implementationClass="com.smartyplugin.lang.SmartyFileType"
                   fieldName="INSTANCE"

@@ -25,6 +25,8 @@ import static com.smartyplugin.parser.SmartyElementTypes.*;
  * while typing. Structural problems (unclosed blocks, stray closing tags) are reported by the annotator.
  */
 public final class SmartyParser implements PsiParser {
+    /** yii2-smarty blocks whose content is JavaScript / CSS: their text becomes CODE_TEXT injection hosts. */
+    private static final Set<String> CODE_BLOCKS = Set.of("registerJs", "registerCss");
     private static final Pattern CLOSE_TAG_PATTERN = Pattern.compile("\\{/([A-Za-z_][A-Za-z0-9_]*)\\s*}");
 
     private record TagInfo(boolean close, @Nullable String name) {
@@ -63,9 +65,16 @@ public final class SmartyParser implements PsiParser {
 
     /** Parses content until EOF, a closing tag of an enclosing block, or a middle tag of the innermost block. */
     private void parseBody(Deque<String> stack) {
+        boolean code = stack.peek() != null && CODE_BLOCKS.contains(stack.peek());
         while (!b.eof()) {
             if (b.getTokenType() != LDELIM) {
-                b.advanceLexer();
+                if (code && b.getTokenType() == TEMPLATE_TEXT) {
+                    PsiBuilder.Marker text = b.mark();
+                    b.advanceLexer();
+                    text.done(CODE_TEXT);
+                } else {
+                    b.advanceLexer();
+                }
                 continue;
             }
             TagInfo info = peekTag();

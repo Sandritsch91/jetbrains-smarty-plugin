@@ -51,6 +51,7 @@ public final class SmartyParserDefinition implements ParserDefinition {
     @Override
     public @NotNull PsiElement createElement(ASTNode node) {
         if (node.getElementType() == SmartyElementTypes.STRING_LITERAL) return new SmartyStringLiteral(node);
+        if (node.getElementType() == SmartyElementTypes.CODE_TEXT) return new com.smartyplugin.psi.SmartyCodeText(node);
         return new SmartyPsiElement(node);
     }
 

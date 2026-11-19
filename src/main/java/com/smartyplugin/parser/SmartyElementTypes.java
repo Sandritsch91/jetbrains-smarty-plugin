@@ -23,6 +23,8 @@ public interface SmartyElementTypes {
     IElementType ATTRIBUTE = new SmartyTokenType("ATTRIBUTE");
     IElementType MODIFIER = new SmartyTokenType("MODIFIER");
     IElementType STRING_LITERAL = new SmartyTokenType("STRING_LITERAL");
+    /** Text inside {registerJs} / {registerCss}: hosts the injected JavaScript / CSS. */
+    IElementType CODE_TEXT = new SmartyTokenType("CODE_TEXT");
 
     TokenSet TAGS = TokenSet.create(OPEN_TAG, MIDDLE_TAG, CLOSE_TAG, TAG, PRINT_TAG);
     TokenSet BLOCK_PARTS = TokenSet.create(OPEN_TAG, MIDDLE_TAG, CLOSE_TAG);
