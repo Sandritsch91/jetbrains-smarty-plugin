@@ -1,3 +1,4 @@
+import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
 
 plugins {
@@ -49,6 +50,14 @@ intellijPlatform {
     }
     buildSearchableOptions = false
     instrumentCode = false
+    // ./gradlew verifyPlugin: JetBrains Plugin Verifier against PhpStorm and the IDEA build used for compiling.
+    pluginVerification {
+        ides {
+            create(IntelliJPlatformType.PhpStorm, providers.gradleProperty("verifyPhpStormVersion").get())
+            val localPath = providers.gradleProperty("platformLocalPath").orNull
+            if (!localPath.isNullOrBlank() && file(localPath).exists()) local(localPath)
+        }
+    }
 }
 
 tasks.test {

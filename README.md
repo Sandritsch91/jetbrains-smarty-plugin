@@ -30,6 +30,15 @@ $env:JAVA_HOME = "C:\Program Files\JetBrains\IntelliJ IDEA 2025.1.1.1\jbr"
 `gradle.properties` points `platformLocalPath` at the locally installed IDE so nothing big is downloaded.
 Clear it to build against a downloaded `platformType`/`platformVersion` instead.
 
+### PhpStorm
+
+The plugin only depends on the platform and XML modules, so it runs in PhpStorm and other IDEs with HTML support (WebStorm, ...).
+
+```powershell
+.\gradlew.bat test -PplatformLocalPath= -PplatformType=PS   # run the tests inside PhpStorm (downloads it once)
+.\gradlew.bat verifyPlugin                                  # JetBrains Plugin Verifier against PhpStorm and IDEA
+```
+
 Install the zip in the IDE via *Settings, Plugins, ⚙, Install Plugin from Disk…*
 
 ## Limitations
@@ -38,7 +47,7 @@ Install the zip in the IDE via *Settings, Plugins, ⚙, Install Plugin from Disk
 - Tag internals are not reformatted (spacing inside `{...}` is kept as written).
 - Variables inside double-quoted strings (`"Hello {$name}"`) are highlighted as part of the string.
 - No PHP-side resolution (variables assigned from PHP controllers are not known).
-- JetBrains ships its own *Smarty* plugin for PhpStorm / IntelliJ IDEA Ultimate with the PHP plugin. Both claim `.tpl`, so enable only one of them.
+- JetBrains ships its own *Smarty* plugin (bundled in PhpStorm, optional in IntelliJ IDEA Ultimate). Both register `.tpl`; when both are enabled this plugin takes `.tpl` and the IDE may show a notice about the reassignment. To go back, pick *Smarty* for `*.tpl` in *Settings, Editor, File Types*, or disable one of the plugins.
 
 ## Layout
 

@@ -14,6 +14,15 @@ import java.util.List;
 
 public class SmartyEditingTest extends BasePlatformTestCase {
 
+    // ------------------------------------------------------------ file type
+
+    /** PhpStorm bundles JetBrains' Smarty plugin, which also registers *.tpl. */
+    public void testTplFilesUseThisPlugin() {
+        com.intellij.openapi.fileTypes.FileType type =
+                com.intellij.openapi.fileTypes.FileTypeManager.getInstance().getFileTypeByFileName("page.tpl");
+        assertSame(com.smartyplugin.lang.SmartyFileType.INSTANCE, type);
+    }
+
     // ------------------------------------------------------------ parsing / annotator
 
     public void testValidTemplateHasNoErrors() {
