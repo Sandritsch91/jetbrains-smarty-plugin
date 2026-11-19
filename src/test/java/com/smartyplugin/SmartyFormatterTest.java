@@ -206,6 +206,37 @@ public class SmartyFormatterTest extends BasePlatformTestCase {
                 """);
     }
 
+    public void testYiiActiveFormIsStable() {
+        String text = """
+                {use class="yii\\bootstrap5\\ActiveForm" type="block"}
+
+                <div class="card panel-default">
+                    <div class="card-body">
+                        {ActiveForm assign="form" id="wedoConnectionForm"}
+                            <div class="row g-3">
+                                {$form->field($model, 'token', [
+                                    'options' => [
+                                        'class' => ['col-12', 'col-lg-6']
+                                    ]
+                                ])->textInput()}
+
+                                <div class="w-100 m-0"></div>
+
+                                {$form->field($model, 'bucket_id', [
+                                    'options' => [
+                                        'class' => ['col-12', 'col-lg-6']
+                                    ]
+                                ])->widget(Select2::class, [
+                                    'data' => $buckets
+                                ])}
+                            </div>
+                        {/ActiveForm}
+                    </div>
+                </div>
+                """;
+        doTest(text, text);
+    }
+
     public void testClosingBraceOnOwnLine() {
         doTest("""
                 {include
