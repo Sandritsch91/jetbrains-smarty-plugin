@@ -234,6 +234,192 @@ public class SmartyPhpTest extends BasePlatformTestCase {
         assertTrue(items.toString(), items.containsAll(List.of("id", "title")));
     }
 
+    private void addHtmlHelper() {
+        myFixture.addFileToProject("vendor/yii/bootstrap5/Html.php", """
+                <?php
+                namespace yii\\bootstrap5;
+
+                class BaseHtml {
+                    public const ICON = 'i';
+                    public static function a(string $text, $url = null): string { return ''; }
+                    public static function encode(string $s): string { return $s; }
+                    public function instanceOnly(): void {}
+                    protected static function hidden(): void {}
+                }
+                class Html extends BaseHtml {
+                    public static function tag(string $name): \\yii\\bootstrap5\\Tag { return new Tag(); }
+                }
+                class Tag { public string $name = ''; }
+                """);
+    }
+
+    public void testStaticCompletionFromUseTag() {
+        addHtmlHelper();
+        configureTemplate("views/site/page.tpl", """
+                {use class="yii\\bootstrap5\\Html"}
+
+                {Html::<caret>}
+                """);
+        myFixture.completeBasic();
+        List<String> items = myFixture.getLookupElementStrings();
+        assertNotNull(items);
+        assertTrue(items.toString(), items.containsAll(List.of("a", "encode", "tag", "ICON")));
+        assertFalse(items.toString(), items.contains("instanceOnly"));
+        assertFalse(items.toString(), items.contains("hidden"));
+    }
+
+    public void testStaticCallInsideExpression() {
+        addHtmlHelper();
+        configureTemplate("views/site/page.tpl", """
+                {use class="yii\\bootstrap5\\Html"}
+                {$link = Html::enc<caret>}
+                """);
+        myFixture.completeBasic();
+        myFixture.checkResult("""
+                {use class="yii\\bootstrap5\\Html"}
+                {$link = Html::encode(<caret>)}
+                """);
+    }
+
+    public void testStaticCallChain() {
+        addHtmlHelper();
+        configureTemplate("views/site/page.tpl", """
+                {use class="yii\\bootstrap5\\Html"}
+                {Html::tag('b')->na<caret>}
+                """);
+        myFixture.completeBasic();
+        myFixture.checkResult("""
+                {use class="yii\\bootstrap5\\Html"}
+                {Html::tag('b')->name<caret>}
+                """);
+    }
+
+    public void testGotoStaticAndUseClass() {
+        addHtmlHelper();
+        configureTemplate("views/site/page.tpl", """
+                {use class="yii\\bootstrap5\\Html"}
+                {Html::a('x')}{Html::ICON}
+                """);
+        String text = myFixture.getEditor().getDocument().getText();
+        PsiElement cls = GotoDeclarationAction.findTargetElement(getProject(), myFixture.getEditor(), text.indexOf("Html::a") + 1);
+        assertInstanceOf(cls, com.jetbrains.php.lang.psi.elements.PhpClass.class);
+        PsiElement method = GotoDeclarationAction.findTargetElement(getProject(), myFixture.getEditor(), text.indexOf("::a") + 2);
+        assertInstanceOf(method, Method.class);
+        assertEquals("a", ((Method) method).getName());
+        PsiElement constant = GotoDeclarationAction.findTargetElement(getProject(), myFixture.getEditor(), text.indexOf("ICON") + 1);
+        assertInstanceOf(constant, Field.class);
+        PsiElement used = GotoDeclarationAction.findTargetElement(getProject(), myFixture.getEditor(), text.indexOf("bootstrap5") + 1);
+        assertInstanceOf(used, com.jetbrains.php.lang.psi.elements.PhpClass.class);
+        assertEquals("Html", ((com.jetbrains.php.lang.psi.elements.PhpClass) used).getName());
+    }
+
+    public void testGotoWidgetTags() {
+        myFixture.addFileToProject("vendor/kartik/select2/Select2.php", """
+                <?php
+                namespace kartik\\select2;
+                class Select2 {
+                    const THEME_BOOTSTRAP = 'bootstrap';
+                    public string $name = '';
+                    public function setTheme(string $theme): void {}
+                }
+                """);
+        myFixture.addFileToProject("vendor/yii/widgets/ActiveForm.php", """
+                <?php
+                namespace yii\\widgets;
+                class ActiveForm { public ?string $id = null; }
+                """);
+        myFixture.addFileToProject("lib/Form.php", "<?php\nclass Form {}\n");
+        configureTemplate("views/site/page.tpl", """
+                {use class="kartik\\select2\\Select2" type="function"}
+                {use class="yii\\widgets\\ActiveForm" type="block"}
+                {ActiveForm id="f"}
+                    {Select2 name='icon'
+                        theme=Select2::THEME_BOOTSTRAP}
+                {/ActiveForm}
+                {form}x{/form}
+                """);
+        String text = myFixture.getEditor().getDocument().getText();
+        assertTarget(text.indexOf("{Select2") + 2, com.jetbrains.php.lang.psi.elements.PhpClass.class, "Select2");
+        assertTarget(text.indexOf("{ActiveForm") + 2, com.jetbrains.php.lang.psi.elements.PhpClass.class, "ActiveForm");
+        assertTarget(text.indexOf("{/ActiveForm") + 3, com.jetbrains.php.lang.psi.elements.PhpClass.class, "ActiveForm");
+        assertTarget(text.indexOf("name='icon'") + 1, Field.class, "name");
+        assertTarget(text.indexOf("theme=") + 1, Method.class, "setTheme");
+        assertTarget(text.indexOf("id=\"f\"") + 1, Field.class, "id");
+        assertNull("{form} is not the global class Form", GotoDeclarationAction.findTargetElement(getProject(),
+                myFixture.getEditor(), text.indexOf("{form}") + 2));
+    }
+
+    private void addSelect2() {
+        myFixture.addFileToProject("vendor/kartik/base/InputWidget.php", """
+                <?php
+                namespace kartik\\base;
+                class InputWidget {
+                    public string $name = '';
+                    public array $options = [];
+                    public static $counter = 0;
+                    protected string $hidden = '';
+                }
+                """);
+        myFixture.addFileToProject("vendor/kartik/select2/Select2.php", """
+                <?php
+                namespace kartik\\select2;
+                class Select2 extends \\kartik\\base\\InputWidget {
+                    const THEME_BOOTSTRAP = 'bootstrap';
+                    public string $language = '';
+                    public array $pluginOptions = [];
+                    public function setTheme(string $theme): void {}
+                }
+                """);
+    }
+
+    public void testWidgetAttributeCompletion() {
+        addSelect2();
+        configureTemplate("views/site/page.tpl", """
+                {use class="kartik\\select2\\Select2" type="function"}
+                {Select2 name='icon' <caret>
+                    pluginOptions=[
+                        'allowClear' => true
+                    ]}
+                """);
+        myFixture.completeBasic();
+        List<String> items = myFixture.getLookupElementStrings();
+        assertNotNull(items);
+        assertTrue(items.toString(), items.containsAll(List.of("language", "options", "theme")));
+        assertFalse("already present: " + items, items.contains("name") || items.contains("pluginOptions"));
+        assertFalse(items.toString(), items.contains("counter") || items.contains("hidden"));
+    }
+
+    public void testWidgetAttributeInsertsAssign() {
+        addSelect2();
+        configureTemplate("views/site/page.tpl", """
+                {use class="kartik\\select2\\Select2" type="function"}
+                {Select2 name='icon' lang<caret>}
+                """);
+        myFixture.completeBasic();
+        myFixture.checkResult("""
+                {use class="kartik\\select2\\Select2" type="function"}
+                {Select2 name='icon' language=<caret>}
+                """);
+    }
+
+    public void testNoWidgetAttributesInsideValues() {
+        addSelect2();
+        configureTemplate("views/site/page.tpl", """
+                {use class="kartik\\select2\\Select2" type="function"}
+                {Select2 pluginOptions=['allowClear' => true, lang<caret>]}
+                """);
+        myFixture.completeBasic();
+        List<String> items = myFixture.getLookupElementStrings();
+        assertTrue(String.valueOf(items), items == null || !items.contains("language"));
+    }
+
+    private void assertTarget(int offset, Class<? extends com.jetbrains.php.lang.psi.elements.PhpNamedElement> type,
+                              String name) {
+        PsiElement target = GotoDeclarationAction.findTargetElement(getProject(), myFixture.getEditor(), offset);
+        assertInstanceOf(target, type);
+        assertEquals(name, ((com.jetbrains.php.lang.psi.elements.PhpNamedElement) target).getName());
+    }
+
     public void testGotoMembers() {
         configureTemplate("views/post-comment/index.tpl", "{$user->na<caret>me} {$user->fullName}");
         PsiElement field = GotoDeclarationAction.findTargetElement(getProject(), myFixture.getEditor(),

@@ -25,7 +25,7 @@ import static com.smartyplugin.parser.SmartyElementTypes.OPEN_TAG;
  * <ul>
  *   <li>Typing <code>{/</code> completes the closing tag of the innermost open block.</li>
  *   <li>Typing the <code>}</code> of an opening block tag inserts the matching closing tag after the caret.</li>
- *   <li>Typing <code>$</code>, <code>|</code> or <code>-&gt;</code> inside a tag opens completion.</li>
+ *   <li>Typing <code>$</code>, <code>|</code>, <code>-&gt;</code> or <code>::</code> inside a tag opens completion.</li>
  * </ul>
  */
 public final class SmartyTypedHandler extends TypedHandlerDelegate {
@@ -34,10 +34,10 @@ public final class SmartyTypedHandler extends TypedHandlerDelegate {
      * Opens completion for variables after <code>$</code> and for modifiers after <code>|</code> inside a tag.
      * Decided after the character is inserted: <code>{</code> alone is plain text until <code>{$</code> makes it a tag.
      */
-    /** The '>' just typed completes "->" (member access). */
-    private static boolean isArrow(Editor editor) {
+    /** The character just typed completes "->" or "::" (member access). */
+    private static boolean previousCharIs(Editor editor, char c) {
         int offset = editor.getCaretModel().getOffset();
-        return offset >= 2 && editor.getDocument().getCharsSequence().charAt(offset - 2) == '-';
+        return offset >= 2 && editor.getDocument().getCharsSequence().charAt(offset - 2) == c;
     }
 
     private static Result scheduleAutoPopup(Project project, Editor editor, PsiFile file) {
@@ -56,7 +56,8 @@ public final class SmartyTypedHandler extends TypedHandlerDelegate {
         if (c == '/') return completeCloseTag(project, editor, file);
         if (c == '}') return insertCloseTag(project, editor, file);
         if (c == '$' || c == '|') return scheduleAutoPopup(project, editor, file);
-        if (c == '>' && isArrow(editor)) return scheduleAutoPopup(project, editor, file);
+        if (c == '>' && previousCharIs(editor, '-')) return scheduleAutoPopup(project, editor, file);
+        if (c == ':' && previousCharIs(editor, ':')) return scheduleAutoPopup(project, editor, file);
         return Result.CONTINUE;
     }
 

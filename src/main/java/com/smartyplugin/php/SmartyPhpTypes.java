@@ -53,6 +53,14 @@ final class SmartyPhpTypes {
         }
         if (name == null || !SmartyPsiUtil.is(name, IDENTIFIER)) return null;
         PsiElement ownerArrow = prevSignificant(name);
+        if (ownerArrow != null && SmartyPsiUtil.is(ownerArrow, DOUBLE_COLON)) {
+            // Html::method()
+            PsiElement className = SmartyPhpClasses.classNameBefore(ownerArrow);
+            if (className == null) return null;
+            PhpType owner = new PhpType();
+            for (PhpClass c : SmartyPhpClasses.resolve(className)) owner.add(c.getFQN());
+            return memberType(name.getProject(), owner, name.getText(), call);
+        }
         if (ownerArrow == null || !SmartyPsiUtil.is(ownerArrow, ARROW)) return null;
         PhpType owner = typeBeforeArrow(ownerArrow);
         return owner == null ? null : memberType(name.getProject(), owner, name.getText(), call);
