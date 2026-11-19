@@ -18,17 +18,21 @@ Smarty's auto-literal rule is respected: `{` followed by whitespace is plain tex
 
 ## Building
 
-Requires a JDK 21+. The IntelliJ IDEA bundled runtime works:
+Requires a JDK 21+ in `JAVA_HOME` (the runtime bundled with IntelliJ IDEA, its `jbr` folder, works).
 
 ```powershell
-$env:JAVA_HOME = "C:\Program Files\JetBrains\IntelliJ IDEA 2025.1.1.1\jbr"
 .\gradlew.bat buildPlugin     # -> build\distributions\jetbrains-smarty-plugin-0.1.0.zip
 .\gradlew.bat test            # headless tests
 .\gradlew.bat runIde          # sandbox IDE with the plugin installed
 ```
 
-`gradle.properties` points `platformLocalPath` at the locally installed IDE so nothing big is downloaded.
-Clear it to build against a downloaded `platformType`/`platformVersion` instead.
+By default the build downloads IntelliJ IDEA `platformVersion` from `gradle.properties` once (about 1.5 GB).
+To build against an IDE you already have installed instead, set `platformLocalPath` for your machine only,
+for example in `~/.gradle/gradle.properties`:
+
+```properties
+platformLocalPath=C:/Program Files/JetBrains/IntelliJ IDEA
+```
 
 ### PhpStorm
 
@@ -36,7 +40,7 @@ The plugin only depends on the platform and XML modules, so it runs in PhpStorm 
 
 ```powershell
 .\gradlew.bat test -PplatformLocalPath= -PplatformType=PS   # run the tests inside PhpStorm (downloads it once)
-.\gradlew.bat verifyPlugin                                  # JetBrains Plugin Verifier: PhpStorm 2026.2/2026.3, IDEA 2026.3, local IDEA
+.\gradlew.bat verifyPlugin                                  # JetBrains Plugin Verifier: PhpStorm and IDEA 2026.2/2026.3
 ```
 
 Install the zip in the IDE via *Settings, Plugins, ⚙, Install Plugin from Disk…*
