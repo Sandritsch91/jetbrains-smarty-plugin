@@ -73,7 +73,8 @@ final class SmartyPhpTypes {
         if (loopType != null) return loopType;
         PhpType widgetType = blockWidgetType(variable, name);
         if (widgetType != null) return widgetType;
-        return passedType(variable.getContainingFile(), name);
+        PhpType passed = passedType(variable.getContainingFile(), name);
+        return passed != null ? passed : SmartyPhpYii.implicitType(variable.getProject(), name);
     }
 
     /** {ActiveForm assign="form"}...{$form->field(...)}...{/ActiveForm}: Yii assigns the widget instance. */

@@ -483,6 +483,66 @@ public class SmartyPhpTest extends BasePlatformTestCase {
         assertEquals(text.indexOf("$row}{$row") , row.getTextRange().getStartOffset());
     }
 
+    private void addYiiCore() {
+        myFixture.addFileToProject("vendor/yiisoft/yii2/web/Application.php", """
+                <?php
+                namespace yii\\web;
+                /** @property-read User $user */
+                class Application { public string $name = ''; }
+                """);
+        myFixture.addFileToProject("vendor/yiisoft/yii2/web/User.php", """
+                <?php
+                namespace yii\\web;
+                class User { public $identity; public function getIsGuest(): bool { return true; } }
+                """);
+        myFixture.addFileToProject("vendor/yiisoft/yii2/web/View.php", """
+                <?php
+                namespace yii\\web;
+                class View {
+                    public string $title = '';
+                    public function render(string $view, array $params = []): string { return ''; }
+                }
+                """);
+    }
+
+    public void testYiiImplicitVariables() {
+        addYiiCore();
+        configureTemplate("views/site/page.tpl", "{$<caret>}");
+        myFixture.completeBasic();
+        List<String> items = myFixture.getLookupElementStrings();
+        assertNotNull(items);
+        assertTrue(items.toString(), items.containsAll(List.of("$app", "$this")));
+    }
+
+    public void testYiiAppMembers() {
+        addYiiCore();
+        configureTemplate("views/site/page.tpl", "{$app->user-><caret>}");
+        myFixture.completeBasic();
+        List<String> items = myFixture.getLookupElementStrings();
+        assertNotNull(items);
+        assertTrue(items.toString(), items.containsAll(List.of("identity", "isGuest")));
+    }
+
+    public void testYiiViewMembersAndGoto() {
+        addYiiCore();
+        configureTemplate("views/site/page.tpl", "{$this-><caret>}");
+        myFixture.completeBasic();
+        List<String> items = myFixture.getLookupElementStrings();
+        assertNotNull(items);
+        assertTrue(items.toString(), items.containsAll(List.of("title", "render")));
+
+        PsiElement view = GotoDeclarationAction.findTargetElement(getProject(), myFixture.getEditor(), 3);
+        assertInstanceOf(view, com.jetbrains.php.lang.psi.elements.PhpClass.class);
+        assertEquals("View", ((com.jetbrains.php.lang.psi.elements.PhpClass) view).getName());
+    }
+
+    public void testNoImplicitVariablesWithoutYii() {
+        configureTemplate("views/site/page.tpl", "{$<caret>}");
+        myFixture.completeBasic();
+        List<String> items = myFixture.getLookupElementStrings();
+        assertTrue(String.valueOf(items), items == null || !items.contains("$app"));
+    }
+
     private void assertTarget(int offset, Class<? extends com.jetbrains.php.lang.psi.elements.PhpNamedElement> type,
                               String name) {
         PsiElement target = GotoDeclarationAction.findTargetElement(getProject(), myFixture.getEditor(), offset);
