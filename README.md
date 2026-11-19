@@ -12,6 +12,7 @@ An IntelliJ Platform plugin for Smarty 3/4/5 templates (`.tpl`, `.smarty`).
 | Errors | Unclosed blocks, stray closing tags, misplaced `{else}` / `{elseif}` / `{foreachelse}`, `{if}` without a condition. |
 | Editing | Typing `}` on an opening block tag inserts the closing tag. Typing `{/` completes the innermost open block. Enter between `{if}` and `{/if}` splits them onto separate lines. *Comment with Block Comment* uses `{* *}`. Folding of blocks and comments. Brace matching, and highlighting of the matching `{if}`/`{else}`/`{/if}` when the caret is on a tag name. |
 | Navigation | Ctrl+Click on paths in `{include}` / `{extends}` / `{config_load}`. Paths resolve against the template's folder and every parent folder up to the content root, which approximates Smarty's `template_dir`. |
+| PHP | With the PHP plugin installed (bundled in PhpStorm), variables passed in from PHP are completed with their type, and Ctrl+Click goes to where they are passed. Recognised: Yii2 `$this->render('index', ['user' => $user])` (also `renderPartial`, `renderAjax`, `renderFile`, `compact('user')`; view names resolve against `views/<controller-id>/`, the calling view, `//path` and `@alias/path`) and Smarty `$smarty->assign(...)` + `display()`/`fetch()` in the same function. `$user->` completes public fields, methods and Yii getters (`getFullName()` as `fullName`), also along chains like `$user->profile->city` and for `{foreach $users as $u}` items; Ctrl+Click on a member opens its PHP declaration. |
 | Other | *New, Smarty Template* action. The template data language can be changed in *Settings, Languages & Frameworks, Template Data Languages*. |
 
 Smarty's auto-literal rule is respected: `{` followed by whitespace is plain text, so inline JS/CSS works without `{literal}`.
@@ -48,7 +49,7 @@ Install the zip in the IDE via *Settings, Plugins, ⚙, Install Plugin from Disk
 ## Limitations
 
 - Default delimiters `{` `}` only. Custom `left_delimiter` / `right_delimiter` are not supported yet.
-- No PHP-side resolution (variables assigned from PHP controllers are not known).
+- PHP-side variables are found by matching render/assign calls to the template path; other ways of passing variables (custom renderers, `$view->params`, variables assigned in a different function than `display()`) are not followed.
 - JetBrains ships its own *Smarty* plugin (bundled in PhpStorm, optional in IntelliJ IDEA Ultimate). Both register `.tpl`; when both are enabled this plugin takes `.tpl` and the IDE may show a notice about the reassignment. To go back, pick *Smarty* for `*.tpl` in *Settings, Editor, File Types*, or disable one of the plugins.
 
 ## Layout

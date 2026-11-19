@@ -1,0 +1,11 @@
+<!-- Loaded only when the PHP plugin is installed: template variables passed in from PHP code. -->
+<idea-plugin>
+    <extensions defaultExtensionNs="com.smartyplugin">
+        <variableProvider implementation="com.smartyplugin.php.SmartyPhpVariableProvider"/>
+    </extensions>
+    <extensions defaultExtensionNs="com.intellij">
+        <completion.contributor language="SmartyTpl" order="first"
+                                implementationClass="com.smartyplugin.php.SmartyPhpCompletionContributor"/>
+        <gotoDeclarationHandler implementation="com.smartyplugin.php.SmartyPhpGotoDeclarationHandler"/>
+    </extensions>
+</idea-plugin>

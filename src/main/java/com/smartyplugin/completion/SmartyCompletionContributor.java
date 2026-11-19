@@ -19,6 +19,7 @@ import com.intellij.psi.util.PsiTreeUtil;
 import com.smartyplugin.lang.SmartyIcons;
 import com.smartyplugin.lang.SmartyLanguage;
 import com.smartyplugin.lang.SmartyTags;
+import com.smartyplugin.lang.SmartyVariableProvider;
 import com.smartyplugin.psi.SmartyPsiUtil;
 import org.jetbrains.annotations.NotNull;
 
@@ -236,7 +237,23 @@ public final class SmartyCompletionContributor extends CompletionContributor {
                 return true;
             });
         }
+        // passed in from outside (PHP render/assign calls): listed first, with their type
+        java.util.Map<String, String> external = new java.util.LinkedHashMap<>();
+        if (smarty != null) {
+            for (SmartyVariableProvider.Variable v : SmartyVariableProvider.all(smarty)) {
+                String type = v.type() == null ? "" : v.type();
+                external.merge("$" + v.name(), type, (a, b) -> a.isEmpty() ? b : a);
+            }
+        }
+        for (java.util.Map.Entry<String, String> e : external.entrySet()) {
+            LookupElementBuilder element = LookupElementBuilder.create(e.getKey())
+                    .withIcon(AllIcons.Nodes.Variable)
+                    .withTypeText(e.getValue().isEmpty() ? "passed in" : e.getValue(), true)
+                    .bold();
+            rs.addElement(PrioritizedLookupElement.withPriority(element, 10));
+        }
         for (String name : names) {
+            if (external.containsKey(name)) continue;
             rs.addElement(LookupElementBuilder.create(name)
                     .withIcon(AllIcons.Nodes.Variable)
                     .withTypeText("$smarty".equals(name) ? "reserved" : null, true));

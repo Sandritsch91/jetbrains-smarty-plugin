@@ -41,6 +41,10 @@ dependencies {
         // Since 2026.3 XML/HTML support is the bundled plugin com.intellij.xml (it still provides the
         // com.intellij.modules.xml module that plugin.xml depends on); before that it was part of the core.
         if (targetBranch(localPath) >= 263) bundledPlugin("com.intellij.xml")
+        // Optional at runtime (META-INF/smarty-php.xml): template variables passed in from PHP code.
+        // Bundled in PhpStorm; for IntelliJ IDEA Ultimate the matching version comes from JetBrains Marketplace.
+        val phpBundled = localPath == null && providers.gradleProperty("platformType").get() == "PS"
+        if (phpBundled) bundledPlugin("com.jetbrains.php") else compatiblePlugin("com.jetbrains.php")
         testFramework(TestFrameworkType.Platform)
     }
     testImplementation("junit:junit:4.13.2")
