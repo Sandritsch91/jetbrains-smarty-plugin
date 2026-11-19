@@ -4,7 +4,9 @@ import com.intellij.lang.ASTNode;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
+import com.intellij.openapi.util.RecursionManager;
 import com.intellij.psi.TokenType;
+import com.smartyplugin.lang.SmartyLanguage;
 import com.intellij.psi.util.PsiTreeUtil;
 import com.jetbrains.php.PhpIndex;
 import com.jetbrains.php.lang.psi.elements.Field;
@@ -36,22 +38,27 @@ final class SmartyPhpTypes {
     /** Type of the expression that ends right before {@code arrow} ("->"), or null. */
     static @Nullable PhpType typeBeforeArrow(@NotNull PsiElement arrow) {
         PsiElement prev = prevSignificant(arrow);
-        if (prev == null) return null;
-        if (SmartyPsiUtil.is(prev, VARIABLE)) return typeOfVariable(prev);
-        boolean call = false;
-        if (SmartyPsiUtil.is(prev, RPAREN)) {
-            prev = matchingOpenParen(prev);
-            prev = prev == null ? null : prevSignificant(prev);
-            call = true;
-        }
-        if (prev == null || !SmartyPsiUtil.is(prev, IDENTIFIER)) return null;
-        PsiElement ownerArrow = prevSignificant(prev);
-        if (ownerArrow == null || !SmartyPsiUtil.is(ownerArrow, ARROW)) return null;
-        PhpType owner = typeBeforeArrow(ownerArrow);
-        return owner == null ? null : memberType(prev.getProject(), owner, prev.getText(), call);
+        return prev == null ? null : typeEndingAt(prev);
     }
 
-    /** Type of a $variable token: passed in from PHP, or the item of an enclosing foreach. */
+    /** Type of the Smarty expression whose last token is {@code last}: $a, $a->b, $a->b(). */
+    static @Nullable PhpType typeEndingAt(@NotNull PsiElement last) {
+        if (SmartyPsiUtil.is(last, VARIABLE)) return typeOfVariable(last);
+        PsiElement name = last;
+        boolean call = false;
+        if (SmartyPsiUtil.is(last, RPAREN)) {
+            PsiElement open = matchingOpenParen(last);
+            name = open == null ? null : prevSignificant(open);
+            call = true;
+        }
+        if (name == null || !SmartyPsiUtil.is(name, IDENTIFIER)) return null;
+        PsiElement ownerArrow = prevSignificant(name);
+        if (ownerArrow == null || !SmartyPsiUtil.is(ownerArrow, ARROW)) return null;
+        PhpType owner = typeBeforeArrow(ownerArrow);
+        return owner == null ? null : memberType(name.getProject(), owner, name.getText(), call);
+    }
+
+    /** Type of a $variable token: passed in from PHP or another template, or the item of an enclosing foreach. */
     static @Nullable PhpType typeOfVariable(@NotNull PsiElement variable) {
         String name = variable.getText().substring(1);
         PhpType loopType = foreachItemType(variable, name);
@@ -62,12 +69,20 @@ final class SmartyPhpTypes {
     static @Nullable PhpType passedType(@NotNull PsiFile template, @NotNull String name) {
         PhpType result = null;
         for (SmartyPhpRenderCalls.Passed p : SmartyPhpRenderCalls.passedTo(template)) {
-            if (p.name().equals(name) && p.value() instanceof PhpTypedElement typed) {
-                PhpType type = typed.getType().global(template.getProject());
-                result = result == null ? type : new PhpType().add(result).add(type);
-            }
+            if (!p.name().equals(name)) continue;
+            PhpType type = typeOf(p);
+            if (type != null) result = result == null ? type : new PhpType().add(result).add(type);
         }
         return result;
+    }
+
+    /** PHP value: its PHP type. Value in a template ({$this->render('_form', ['model' => $model])}): its type there. */
+    static @Nullable PhpType typeOf(@NotNull SmartyPhpRenderCalls.Passed passed) {
+        PsiElement value = passed.value();
+        if (value instanceof PhpTypedElement typed) return typed.getType().global(value.getProject());
+        if (value == null || value.getLanguage() != SmartyLanguage.INSTANCE) return null;
+        // templates can render each other in a cycle
+        return RecursionManager.doPreventingRecursion(value, false, () -> typeEndingAt(value));
     }
 
     /** {foreach $items as $item}, {foreach $items as $key => $item}, {foreach from=$items item=item} */
@@ -158,7 +173,11 @@ final class SmartyPhpTypes {
                 continue;
             }
             Field f = c.findFieldByName(name, false);
-            if (f != null) result.add(f);
+            if (f != null) {
+                // a documented property wins over its getter: "@property-read User $user" vs "getUser(): ActiveQuery"
+                result.add(f);
+                continue;
+            }
             Method getter = c.findMethodByName("get" + capitalize(name));
             if (getter != null) result.add(getter);
         }

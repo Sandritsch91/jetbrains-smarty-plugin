@@ -1,7 +1,14 @@
 package com.smartyplugin.php;
 
+import com.intellij.openapi.project.DumbService;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.vfs.VirtualFile;
+import com.intellij.psi.PsiManager;
+import com.intellij.psi.search.FilenameIndex;
+import com.smartyplugin.lang.SmartyLanguage;
+import com.smartyplugin.psi.SmartyPsiUtil;
+import com.smartyplugin.psi.SmartyStringLiteral;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.search.GlobalSearchScope;
@@ -25,9 +32,12 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+
+import static com.smartyplugin.lexer.SmartyTokenTypes.*;
 
 /**
  * Finds the PHP code that renders a template and the variables it passes:
@@ -56,8 +66,11 @@ final class SmartyPhpRenderCalls {
 
     static @NotNull List<Passed> passedTo(@NotNull PsiFile template) {
         PsiFile file = template.getOriginalFile();
+        Project project = file.getProject();
+        // while indexing nothing can be found; the dumb-mode tracker drops that empty result once indexing ends
         return CachedValuesManager.getCachedValue(file, () -> CachedValueProvider.Result.create(
-                compute(file), PsiModificationTracker.getInstance(file.getProject())));
+                DumbService.isDumb(project) ? List.of() : compute(file),
+                PsiModificationTracker.getInstance(project), DumbService.getInstance(project).getModificationTracker()));
     }
 
     private static List<Passed> compute(PsiFile template) {
@@ -69,6 +82,7 @@ final class SmartyPhpRenderCalls {
 
         Project project = template.getProject();
         List<Passed> result = new ArrayList<>();
+        collectFromTemplates(project, path, word, result);
         Set<StringLiteralExpression> seen = new HashSet<>();
         PsiSearchHelper.getInstance(project).processElementsWithWord((element, offsetInElement) -> {
             if (!element.getLanguage().isKindOf(PhpLanguage.INSTANCE)) return true;
@@ -87,6 +101,88 @@ final class SmartyPhpRenderCalls {
             return true;
         }, GlobalSearchScope.projectScope(project), word, UsageSearchContext.IN_STRINGS, true);
         return result;
+    }
+
+    // ------------------------------------------------------------------ renders in templates
+
+    /** {$this->render('_form', ['model' => $model])} in another template. */
+    private static void collectFromTemplates(Project project, String templatePath, String word, List<Passed> out) {
+        PsiManager psiManager = PsiManager.getInstance(project);
+        GlobalSearchScope scope = GlobalSearchScope.projectScope(project);
+        // by extension, not by file type: right after *.tpl was reassigned from another Smarty plugin, the file
+        // type index may still list the files under the old type
+        Set<VirtualFile> templates = new LinkedHashSet<>();
+        for (String ext : new String[]{"tpl", "smarty"}) {
+            templates.addAll(FilenameIndex.getAllFilesByExt(project, ext, scope));
+        }
+        for (VirtualFile vf : templates) {
+            PsiFile file = psiManager.findFile(vf);
+            if (file == null || !StringUtil.contains(file.getViewProvider().getContents(), word)) continue;
+            PsiFile smarty = file.getViewProvider().getPsi(SmartyLanguage.INSTANCE);
+            if (smarty == null) continue;
+            for (SmartyStringLiteral literal : PsiTreeUtil.findChildrenOfType(smarty, SmartyStringLiteral.class)) {
+                if (isTemplateRenderCall(literal) && matchesTemplateView(literal, vf, templatePath)) {
+                    collectTemplateArray(literal, out);
+                }
+            }
+        }
+    }
+
+    /** The literal is the first argument of ->render( / ->renderPartial( / ... */
+    private static boolean isTemplateRenderCall(SmartyStringLiteral literal) {
+        PsiElement paren = SmartyPhpTypes.prevSignificant(literal);
+        if (paren == null || !SmartyPsiUtil.is(paren, LPAREN)) return false;
+        PsiElement name = SmartyPhpTypes.prevSignificant(paren);
+        if (name == null || !SmartyPsiUtil.is(name, IDENTIFIER) || !YII_RENDER.contains(name.getText())) return false;
+        PsiElement arrow = SmartyPhpTypes.prevSignificant(name);
+        return arrow != null && SmartyPsiUtil.is(arrow, ARROW);
+    }
+
+    private static boolean matchesTemplateView(SmartyStringLiteral literal, VirtualFile caller, String templatePath) {
+        String view = withoutExtension(SmartyPsiUtil.unquote(literal.getText()).replace('\\', '/'));
+        if (view.isEmpty()) return false;
+        if (view.startsWith("@")) {
+            int slash = view.indexOf('/');
+            return slash > 0 && pathEndsWith(templatePath, view.substring(slash + 1));
+        }
+        if (view.startsWith("/")) return pathEndsWith(templatePath, view.replaceFirst("^/+", ""));
+        VirtualFile dir = caller.getParent();
+        return dir != null && templatePath.equals(dir.getPath() + "/" + view);
+    }
+
+    /** Entries of the [...] after the view name: 'key' => expression. The value is the expression's last token. */
+    private static void collectTemplateArray(SmartyStringLiteral literal, List<Passed> out) {
+        PsiElement comma = SmartyPhpTypes.nextSignificant(literal);
+        if (comma == null || !SmartyPsiUtil.is(comma, COMMA)) return;
+        PsiElement open = SmartyPhpTypes.nextSignificant(comma);
+        if (open == null || !SmartyPsiUtil.is(open, LBRACKET)) return;
+        int depth = 1;
+        PsiElement key = null;
+        boolean afterArrow = false;
+        PsiElement lastValue = null;
+        for (PsiElement t = SmartyPhpTypes.nextSignificant(open); t != null; t = SmartyPhpTypes.nextSignificant(t)) {
+            if (SmartyPsiUtil.is(t, RDELIM) && depth <= 1) break;
+            boolean entryEnd = depth == 1 && (SmartyPsiUtil.is(t, COMMA) || SmartyPsiUtil.is(t, RBRACKET));
+            if (entryEnd) {
+                if (key != null && afterArrow) {
+                    out.add(new Passed(SmartyPsiUtil.unquote(key.getText()), key, lastValue));
+                }
+                key = null;
+                afterArrow = false;
+                lastValue = null;
+                if (SmartyPsiUtil.is(t, RBRACKET)) break;
+                continue;
+            }
+            if (SmartyPsiUtil.is(t, LBRACKET) || SmartyPsiUtil.is(t, LPAREN)) depth++;
+            if (SmartyPsiUtil.is(t, RBRACKET) || SmartyPsiUtil.is(t, RPAREN)) depth--;
+            if (depth == 1 && !afterArrow && SmartyPsiUtil.is(t, STRING)) {
+                key = t.getParent() instanceof SmartyStringLiteral s ? s : t;
+            } else if (depth == 1 && key != null && SmartyPsiUtil.is(t, DOUBLE_ARROW)) {
+                afterArrow = true;
+            } else if (afterArrow) {
+                lastValue = t;
+            }
+        }
     }
 
     // ------------------------------------------------------------------ view name matching

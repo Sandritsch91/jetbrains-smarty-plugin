@@ -141,6 +141,99 @@ public class SmartyPhpTest extends BasePlatformTestCase {
         assertEquals("user", ((StringLiteralExpression) target).getContents());
     }
 
+    /** Layout of a real Yii module: namespaced classes, inherited @property docs, an unclosed tag while typing. */
+    private void addNotificationsModule() {
+        myFixture.addFileToProject("src/models/Notification.php", """
+                <?php
+                namespace acme\\notifications\\models;
+
+                /**
+                 * @property integer $id
+                 * @property string $key
+                 * @property-read \\acme\\notifications\\models\\Address $user
+                 */
+                abstract class Notification {
+                    public function rules(): array { return []; }
+                    public function getUser(): \\yii\\db\\ActiveQuery { return null; }
+                }
+                """);
+        myFixture.addFileToProject("src/models/Address.php", """
+                <?php
+                namespace acme\\notifications\\models;
+                class Address { public string $email = ''; }
+                """);
+        myFixture.addFileToProject("src/models/ManualNotification.php", """
+                <?php
+                namespace acme\\notifications\\models;
+
+                class ManualNotification extends Notification {
+                    public function getTitle(): string { return ''; }
+                }
+                """);
+        myFixture.addFileToProject("src/controllers/AdminController.php", """
+                <?php
+                namespace acme\\notifications\\controllers;
+
+                use acme\\notifications\\models\\ManualNotification;
+
+                class AdminController extends Controller {
+                    public function actionCreate(): Response|string {
+                        $model = new ManualNotification();
+                        $groups = [];
+                        return $this->render('create', [
+                            'model' => $model,
+                            'groups' => $groups,
+                        ]);
+                    }
+                }
+                """);
+    }
+
+    public void testYiiModuleWhileTyping() {
+        addNotificationsModule();
+        configureTemplate("src/views/admin/create.tpl", """
+                {set title='Add notification'|t:'hq-re/notifications'}
+
+                {$model-><caret>
+
+                <div class="notification">
+                    {$this->render('_form', [
+                        'model' => $model,
+                        'groups' => $groups
+                    ])}
+                </div>
+                """);
+        myFixture.completeBasic();
+        List<String> items = myFixture.getLookupElementStrings();
+        assertNotNull(items);
+        assertTrue(items.toString(), items.containsAll(List.of("id", "key", "user", "title", "rules")));
+    }
+
+    public void testRelationPropertyUsesDocType() {
+        addNotificationsModule();
+        configureTemplate("src/views/admin/create.tpl", "{$model->user->em<caret>}");
+        myFixture.completeBasic();
+        myFixture.checkResult("{$model->user->email<caret>}");
+    }
+
+    /** _form.tpl is rendered from create.tpl: {$this->render('_form', ['model' => $model])} */
+    public void testVariablesFromSmartyRender() {
+        addNotificationsModule();
+        myFixture.addFileToProject("src/views/admin/create.tpl", """
+                <div>
+                    {$this->render('_form', [
+                        'model' => $model,
+                        'groups' => $groups
+                    ])}
+                </div>
+                """);
+        configureTemplate("src/views/admin/_form.tpl", "{$model-><caret>}");
+        myFixture.completeBasic();
+        List<String> items = myFixture.getLookupElementStrings();
+        assertNotNull(items);
+        assertTrue(items.toString(), items.containsAll(List.of("id", "title")));
+    }
+
     public void testGotoMembers() {
         configureTemplate("views/post-comment/index.tpl", "{$user->na<caret>me} {$user->fullName}");
         PsiElement field = GotoDeclarationAction.findTargetElement(getProject(), myFixture.getEditor(),
