@@ -42,7 +42,8 @@ public final class SmartyStringLiteral extends SmartyPsiElement {
             tag = parent == null ? null : parent.getNode();
         }
         if (tag == null || !TAGS.contains(tag.getElementType())) return false;
-        return FILE_TAGS.contains(SmartyPsiUtil.tagName(tag));
+        String name = SmartyPsiUtil.tagName(tag); // null for print tags: {$form->field($model, 'x')}
+        return name != null && FILE_TAGS.contains(name);
     }
 
     @Override

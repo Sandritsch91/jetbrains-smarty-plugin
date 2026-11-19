@@ -187,6 +187,28 @@ public class SmartyEditingTest extends BasePlatformTestCase {
 
     // ------------------------------------------------------------ navigation
 
+    /** Strings in print tags have no tag name; asking them for references (Find Usages does) must not fail. */
+    public void testStringsInPrintTagsHaveNoReferences() {
+        myFixture.configureByText("_form.tpl", """
+                {use class="yii\\bootstrap5\\ActiveForm" type="block"}
+                {ActiveForm assign="form" id="wedoConnectionForm"}
+                    {$form->field($model, 'token', [
+                        'options' => [
+                            'class' => ['col-12', 'col-lg-6']
+                        ]
+                    ])->textInput()}
+                    {'Icon'|t:'app'}
+                {/ActiveForm}
+                """);
+        PsiFile smarty = myFixture.getFile().getViewProvider().getPsi(SmartyLanguage.INSTANCE);
+        Collection<SmartyStringLiteral> strings = PsiTreeUtil.findChildrenOfType(smarty, SmartyStringLiteral.class);
+        assertTrue(strings.size() > 5);
+        for (SmartyStringLiteral s : strings) {
+            assertFalse(s.getText(), s.isTemplatePath());
+            assertEquals(s.getText(), 0, s.getReferences().length);
+        }
+    }
+
     public void testIncludeResolvesRelativeToTemplateRoots() {
         myFixture.addFileToProject("views/layouts/main.tpl", "<html>{block name=\"body\"}{/block}</html>");
         PsiFile page = myFixture.addFileToProject("views/site/index.tpl", "{extends file=\"layouts/main.tpl\"}");
