@@ -36,7 +36,7 @@ The plugin only depends on the platform and XML modules, so it runs in PhpStorm 
 
 ```powershell
 .\gradlew.bat test -PplatformLocalPath= -PplatformType=PS   # run the tests inside PhpStorm (downloads it once)
-.\gradlew.bat verifyPlugin                                  # JetBrains Plugin Verifier against PhpStorm and IDEA
+.\gradlew.bat verifyPlugin                                  # JetBrains Plugin Verifier: PhpStorm 2026.2, IDEA 2026.3, local IDEA
 ```
 
 Install the zip in the IDE via *Settings, Plugins, ⚙, Install Plugin from Disk…*

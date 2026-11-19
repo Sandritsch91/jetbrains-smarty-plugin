@@ -16,10 +16,21 @@ repositories {
     }
 }
 
+/** Branch of the target IDE, e.g. 262 for 2026.2 or 263 for 2026.3. */
+fun targetBranch(localPath: String?): Int {
+    if (localPath != null) {
+        val info = file("$localPath/product-info.json").readText()
+        return Regex("\"buildNumber\"\\s*:\\s*\"(\\d+)").find(info)!!.groupValues[1].toInt()
+    }
+    val (year, release) = providers.gradleProperty("platformVersion").get().split(".").map { it.toInt() }
+    return (year - 2000) * 10 + release
+}
+
 dependencies {
     intellijPlatform {
         val localPath = providers.gradleProperty("platformLocalPath").orNull
-        if (!localPath.isNullOrBlank() && file(localPath).exists()) {
+            ?.takeIf { it.isNotBlank() && file(it).exists() }
+        if (localPath != null) {
             local(localPath)
         } else {
             create(
@@ -27,6 +38,9 @@ dependencies {
                 providers.gradleProperty("platformVersion").get()
             )
         }
+        // Since 2026.3 XML/HTML support is the bundled plugin com.intellij.xml (it still provides the
+        // com.intellij.modules.xml module that plugin.xml depends on); before that it was part of the core.
+        if (targetBranch(localPath) >= 263) bundledPlugin("com.intellij.xml")
         testFramework(TestFrameworkType.Platform)
     }
     testImplementation("junit:junit:4.13.2")
@@ -50,10 +64,11 @@ intellijPlatform {
     }
     buildSearchableOptions = false
     instrumentCode = false
-    // ./gradlew verifyPlugin: JetBrains Plugin Verifier against PhpStorm and the IDEA build used for compiling.
+    // ./gradlew verifyPlugin: JetBrains Plugin Verifier against PhpStorm, a newer IDEA and the IDEA build used for compiling.
     pluginVerification {
         ides {
             create(IntelliJPlatformType.PhpStorm, providers.gradleProperty("verifyPhpStormVersion").get())
+            create(IntelliJPlatformType.IntellijIdeaUltimate, providers.gradleProperty("verifyIdeaVersion").get())
             val localPath = providers.gradleProperty("platformLocalPath").orNull
             if (!localPath.isNullOrBlank() && file(localPath).exists()) local(localPath)
         }
