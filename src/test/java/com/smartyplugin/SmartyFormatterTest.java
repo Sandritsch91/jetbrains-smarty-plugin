@@ -126,4 +126,105 @@ public class SmartyFormatterTest extends BasePlatformTestCase {
                 """;
         doTest(text, text);
     }
+
+    // ------------------------------------------------------------ inside tags
+
+    public void testSpacingInsideTags() {
+        doTest("""
+                {if $a==1&&!$b  or $c>-1}x{/if}
+                {include file="a.tpl"   title=$t }
+                {$name | escape : 'html'|default:"x"}
+                {foreach $list as $k=>$v}{$v@iteration}{/foreach}
+                {$items[ 0 ]}{$obj->name}{$user.name}{Foo::BAR}
+                {assign var=x value=[ 1,2 ,3 ]}
+                {$x=isset( $a )}
+                """, """
+                {if $a == 1 && !$b or $c > -1}x{/if}
+                {include file="a.tpl" title=$t}
+                {$name|escape:'html'|default:"x"}
+                {foreach $list as $k => $v}{$v@iteration}{/foreach}
+                {$items[0]}{$obj->name}{$user.name}{Foo::BAR}
+                {assign var=x value=[1, 2, 3]}
+                {$x=isset($a)}
+                """);
+    }
+
+    public void testTagsInsideHtml() {
+        doTest("""
+                <a href="{url route='site/index'  id=$id}" class="{if $active }active{/if}">{$title|truncate:30:"..."  }</a>
+                """, """
+                <a href="{url route='site/index' id=$id}" class="{if $active}active{/if}">{$title|truncate:30:"..."}</a>
+                """);
+    }
+
+    public void testSpacingKeptWhereAmbiguous() {
+        String text = """
+                {$a = 1}{$b=2}
+                {for $i=0 to 3}{$i}{/for}
+                {$x|default:$y + 1}
+                {$a . $b}{$c.d}
+                {if ($a)}x{/if}
+                """;
+        doTest(text, text);
+    }
+
+    public void testMultiLineTag() {
+        doTest("""
+                <div class="mb-3">
+                <label for="icon" class="form-label">{'Icon'|t:'hq-re/notifications'}</label>
+                {Select2 name='icon'
+                theme=Select2::THEME_BOOTSTRAP id='icon' pluginOptions=[
+                'allowClear'=>true,
+                'minimumInputLength' => 3,
+                'ajax' => [
+                'url' => {url route="list"},
+                'dataType' => 'json',
+                'data' => Yii::createObject('\\yii\\web\\JsExpression', [
+                'function (params) { return {q: params.term, iconOnly: true}; }'
+                ])
+                ],
+                'escapeMarkup' => Yii::createObject('\\yii\\web\\JsExpression', ['function (markup) { return markup; }']),
+                ]}
+                </div>
+                """, """
+                <div class="mb-3">
+                    <label for="icon" class="form-label">{'Icon'|t:'hq-re/notifications'}</label>
+                    {Select2 name='icon'
+                        theme=Select2::THEME_BOOTSTRAP id='icon' pluginOptions=[
+                            'allowClear' => true,
+                            'minimumInputLength' => 3,
+                            'ajax' => [
+                                'url' => {url route="list"},
+                                'dataType' => 'json',
+                                'data' => Yii::createObject('\\yii\\web\\JsExpression', [
+                                    'function (params) { return {q: params.term, iconOnly: true}; }'
+                                ])
+                            ],
+                            'escapeMarkup' => Yii::createObject('\\yii\\web\\JsExpression', ['function (markup) { return markup; }']),
+                        ]}
+                </div>
+                """);
+    }
+
+    public void testClosingBraceOnOwnLine() {
+        doTest("""
+                {include
+                file="a.tpl"
+                title="x"
+                        }
+                """, """
+                {include
+                    file="a.tpl"
+                    title="x"
+                }
+                """);
+    }
+
+    public void testMultiLineStringIsNotReindented() {
+        String text = """
+                {assign var=js value='line one
+                  line two'}
+                """;
+        doTest(text, text);
+    }
 }

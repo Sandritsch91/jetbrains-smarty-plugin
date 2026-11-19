@@ -3,6 +3,7 @@ package com.smartyplugin.formatter;
 import com.intellij.formatting.Block;
 import com.intellij.formatting.ChildAttributes;
 import com.intellij.formatting.Indent;
+import com.intellij.formatting.Spacing;
 import com.intellij.formatting.templateLanguages.BlockWithParent;
 import com.intellij.formatting.templateLanguages.DataLanguageBlockWrapper;
 import com.intellij.formatting.templateLanguages.TemplateLanguageBlock;
@@ -36,19 +37,26 @@ final class SmartyFormatterBlock extends TemplateLanguageBlock {
     }
 
     private boolean isAtomic() {
-        IElementType type = myNode.getElementType();
-        return TAGS.contains(type) || type == COMMENT;
+        return myNode.getElementType() == COMMENT;
     }
 
     @Override
     public boolean isLeaf() {
+        if (SmartyTagLayout.isTag(myNode)) return false;
         return isAtomic() || super.isLeaf();
     }
 
     @Override
     protected List<Block> buildChildren() {
         if (isAtomic()) return EMPTY;
+        if (SmartyTagLayout.isTag(myNode)) return SmartyTagLayout.buildChildren(myNode, getSettings());
         return super.buildChildren();
+    }
+
+    @Override
+    public @Nullable Spacing getSpacing(@Nullable Block child1, @NotNull Block child2) {
+        if (SmartyTagLayout.isTag(myNode)) return SmartyTagLayout.spacing(child1, child2);
+        return super.getSpacing(child1, child2);
     }
 
     /*
@@ -124,6 +132,9 @@ final class SmartyFormatterBlock extends TemplateLanguageBlock {
         }
         if (type == BLOCK_BODY) {
             return new ChildAttributes(isInsideHtmlTagContent() ? Indent.getNormalIndent() : Indent.getNoneIndent(), null);
+        }
+        if (SmartyTagLayout.isTag(myNode)) {
+            return new ChildAttributes(Indent.getNormalIndent(), null); // Enter inside a multi-line tag
         }
         return new ChildAttributes(Indent.getNoneIndent(), null);
     }
