@@ -1,5 +1,6 @@
 package com.smartyplugin.editor;
 
+import com.intellij.codeInsight.AutoPopupController;
 import com.intellij.codeInsight.editorActions.TypedHandlerDelegate;
 import com.intellij.lang.ASTNode;
 import com.intellij.openapi.editor.Document;
@@ -24,15 +25,31 @@ import static com.smartyplugin.parser.SmartyElementTypes.OPEN_TAG;
  * <ul>
  *   <li>Typing <code>{/</code> completes the closing tag of the innermost open block.</li>
  *   <li>Typing the <code>}</code> of an opening block tag inserts the matching closing tag after the caret.</li>
+ *   <li>Typing <code>$</code> or <code>|</code> inside a tag opens completion.</li>
  * </ul>
  */
 public final class SmartyTypedHandler extends TypedHandlerDelegate {
+
+    /**
+     * Opens completion for variables after <code>$</code> and for modifiers after <code>|</code> inside a tag.
+     * Decided after the character is inserted: <code>{</code> alone is plain text until <code>{$</code> makes it a tag.
+     */
+    private static Result scheduleAutoPopup(Project project, Editor editor, PsiFile file) {
+        int offset = editor.getCaretModel().getOffset();
+        PsiDocumentManager.getInstance(project).commitDocument(editor.getDocument());
+        PsiElement typed = SmartyPsiUtil.smartyElementAt(file, offset - 1);
+        if (typed != null && SmartyPsiUtil.enclosingTag(typed.getNode()) != null) {
+            AutoPopupController.getInstance(project).scheduleAutoPopup(editor);
+        }
+        return Result.CONTINUE;
+    }
 
     @Override
     public @NotNull Result charTyped(char c, @NotNull Project project, @NotNull Editor editor, @NotNull PsiFile file) {
         if (!(file.getViewProvider() instanceof SmartyFileViewProvider)) return Result.CONTINUE;
         if (c == '/') return completeCloseTag(project, editor, file);
         if (c == '}') return insertCloseTag(project, editor, file);
+        if (c == '$' || c == '|') return scheduleAutoPopup(project, editor, file);
         return Result.CONTINUE;
     }
 

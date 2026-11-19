@@ -242,9 +242,4 @@ public final class SmartyCompletionContributor extends CompletionContributor {
                     .withTypeText("$smarty".equals(name) ? "reserved" : null, true));
         }
     }
-
-    @Override
-    public boolean invokeAutoPopup(@NotNull PsiElement position, char typeChar) {
-        return position.getLanguage() == SmartyLanguage.INSTANCE && (typeChar == '$' || typeChar == '|');
-    }
 }
