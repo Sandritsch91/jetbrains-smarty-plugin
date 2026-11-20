@@ -556,6 +556,83 @@ public class SmartyPhpTest extends BasePlatformTestCase {
         assertTrue(String.valueOf(items), items == null || !items.contains("$app"));
     }
 
+    public void testWidgetConfigKeyWhileTyping() {
+        addSelect2();
+        configureTemplate("views/site/page.tpl", """
+                {use class="kartik\\select2\\Select2"}
+                {Select2::widget([
+                    'name' => 'users',
+                    'pluginOpt<caret>
+                ])}
+                """);
+        myFixture.completeBasic();
+        myFixture.checkResult("""
+                {use class="kartik\\select2\\Select2"}
+                {Select2::widget([
+                    'name' => 'users',
+                    'pluginOptions' => <caret>
+                ])}
+                """);
+    }
+
+    public void testWidgetConfigKeys() {
+        addSelect2();
+        configureTemplate("views/site/page.tpl", """
+                {use class="kartik\\select2\\Select2"}
+                {Select2::widget(['name' => 'users', '<caret>'])}
+                """);
+        myFixture.completeBasic();
+        List<String> items = myFixture.getLookupElementStrings();
+        assertNotNull(items);
+        assertTrue(items.toString(), items.containsAll(List.of("language", "options", "pluginOptions", "theme")));
+        assertFalse("already present: " + items, items.contains("name"));
+    }
+
+    public void testActiveFieldWidgetConfigKeys() {
+        addSelect2();
+        configureTemplate("views/site/page.tpl", """
+                {use class="kartik\\select2\\Select2"}
+                {$form->field($model, 'icon')->widget(Select2::class, [
+                    'data' => $items,
+                    '<caret>'
+                ])}
+                """);
+        myFixture.completeBasic();
+        List<String> items = myFixture.getLookupElementStrings();
+        assertNotNull(items);
+        assertTrue(items.toString(), items.containsAll(List.of("language", "pluginOptions")));
+    }
+
+    public void testNoWidgetKeysInNestedArraysOrValues() {
+        addSelect2();
+        configureTemplate("views/site/page.tpl", """
+                {use class="kartik\\select2\\Select2"}
+                {Select2::widget(['options' => ['<caret>']])}
+                """);
+        myFixture.completeBasic();
+        List<String> nested = myFixture.getLookupElementStrings();
+        assertTrue(String.valueOf(nested), nested == null || !nested.contains("pluginOptions"));
+
+        configureTemplate("views/site/value.tpl", """
+                {use class="kartik\\select2\\Select2"}
+                {Select2::widget(['name' => '<caret>'])}
+                """);
+        myFixture.completeBasic();
+        List<String> value = myFixture.getLookupElementStrings();
+        assertTrue(String.valueOf(value), value == null || !value.contains("pluginOptions"));
+    }
+
+    public void testGotoWidgetConfigKey() {
+        addSelect2();
+        configureTemplate("views/site/page.tpl", """
+                {use class="kartik\\select2\\Select2"}
+                {Select2::widget(['pluginOptions' => [], 'theme' => 'x'])}
+                """);
+        String text = myFixture.getEditor().getDocument().getText();
+        assertTarget(text.indexOf("'pluginOptions'") + 2, Field.class, "pluginOptions");
+        assertTarget(text.indexOf("'theme'") + 2, Method.class, "setTheme");
+    }
+
     private void assertTarget(int offset, Class<? extends com.jetbrains.php.lang.psi.elements.PhpNamedElement> type,
                               String name) {
         PsiElement target = GotoDeclarationAction.findTargetElement(getProject(), myFixture.getEditor(), offset);

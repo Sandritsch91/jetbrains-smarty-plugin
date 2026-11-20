@@ -41,7 +41,17 @@ public final class SmartyPhpGotoDeclarationHandler implements GotoDeclarationHan
     }
 
     private static List<? extends PsiElement> targets(PsiElement token) {
-        if (SmartyPsiUtil.is(token, STRING)) return useClassTargets(token);
+        if (SmartyPsiUtil.is(token, STRING)) {
+            PsiElement arrow = SmartyPhpTypes.nextSignificant(token);
+            if (arrow != null && SmartyPsiUtil.is(arrow, DOUBLE_ARROW)) {
+                // 'pluginOptions' => ... in Select2::widget([...])
+                List<PhpClass> widget = SmartyPhpWidgetConfig.widgetForKey(token);
+                if (!widget.isEmpty()) {
+                    return SmartyPhpWidgets.propertyTargets(widget, SmartyPsiUtil.unquote(token.getText()));
+                }
+            }
+            return useClassTargets(token);
+        }
 
         PsiElement next = SmartyPhpTypes.nextSignificant(token);
         if ((SmartyPsiUtil.is(token, TAG_NAME) || SmartyPsiUtil.is(token, IDENTIFIER))

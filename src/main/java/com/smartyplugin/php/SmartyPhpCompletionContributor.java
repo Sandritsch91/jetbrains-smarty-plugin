@@ -37,7 +37,19 @@ public final class SmartyPhpCompletionContributor extends CompletionContributor 
     public void fillCompletionVariants(@NotNull CompletionParameters parameters, @NotNull CompletionResultSet result) {
         PsiElement position = parameters.getPosition();
         if (position.getLanguage() != SmartyLanguage.INSTANCE) return;
-        boolean name = SmartyPsiUtil.is(position, IDENTIFIER) || SmartyPsiUtil.is(position, ATTR_NAME);
+        if (com.smartyplugin.psi.SmartyPsiUtil.is(position, com.smartyplugin.lexer.SmartyTokenTypes.STRING)) {
+            // a key of a widget configuration: Select2::widget(['pluginNa|
+            List<PhpClass> widget = SmartyPhpWidgetConfig.widgetForKey(position);
+            if (widget.isEmpty()) return;
+            int inToken = parameters.getOffset() - position.getTextRange().getStartOffset();
+            String keyPrefix = position.getText().substring(Math.min(1, inToken), Math.max(Math.min(1, inToken),
+                    Math.min(inToken, position.getTextLength())));
+            CompletionResultSet keys = result.withPrefixMatcher(keyPrefix);
+            SmartyPhpWidgetConfig.completeKeys(position, widget, position.getProject(), keys);
+            keys.stopHere();
+            return;
+        }
+        boolean name =SmartyPsiUtil.is(position, IDENTIFIER) || SmartyPsiUtil.is(position, ATTR_NAME);
         if (!name) return;
         PsiElement separator = SmartyPhpTypes.prevSignificant(position);
         if (separator == null) return;

@@ -36,27 +36,55 @@ final class SmartyPhpWidgets {
         return name == null ? List.of() : SmartyPhpClasses.resolveUsed(name.getPsi());
     }
 
-    static void completeAttributes(@NotNull PsiElement position, @NotNull List<PhpClass> classes,
-                                   @NotNull Project project, @NotNull CompletionResultSet rs) {
-        Set<String> present = presentAttributes(position);
+    /** A configurable widget property: a public field, or a Yii setter (setTheme() configures "theme"). */
+    record Property(@NotNull String name, @Nullable String type, @NotNull PhpClass owner,
+                    @NotNull com.jetbrains.php.lang.psi.elements.PhpNamedElement element) {
+    }
+
+    static @NotNull List<Property> properties(@NotNull List<PhpClass> classes, @NotNull Project project) {
+        List<Property> result = new java.util.ArrayList<>();
         Set<String> seen = new HashSet<>();
         for (PhpClass c : classes) {
             for (Field f : c.getFields()) {
                 if (f.isConstant() || !f.getModifier().isPublic() || f.getModifier().isStatic()) continue;
-                if (present.contains(f.getName()) || !seen.add(f.getName())) continue;
-                rs.addElement(attribute(LookupElementBuilder.create(f, f.getName()), f.getName(),
-                        SmartyPhpTypes.presentable(f.getType().global(project)), c));
+                if (!seen.add(f.getName())) continue;
+                result.add(new Property(f.getName(), SmartyPhpTypes.presentable(f.getType().global(project)), c, f));
             }
             for (Method m : c.getMethods()) {
                 String n = m.getName();
                 if (n.length() <= 3 || !n.startsWith("set") || !Character.isUpperCase(n.charAt(3))) continue;
                 if (m.isStatic() || !m.getAccess().isPublic() || m.getParameters().length == 0) continue;
                 String prop = Character.toLowerCase(n.charAt(3)) + n.substring(4);
-                if (present.contains(prop) || !seen.add(prop)) continue;
+                if (!seen.add(prop)) continue;
                 Parameter p = m.getParameters()[0];
-                rs.addElement(attribute(LookupElementBuilder.create(m, prop), prop,
-                        SmartyPhpTypes.presentable(p.getType().global(project)), c));
+                result.add(new Property(prop, SmartyPhpTypes.presentable(p.getType().global(project)), c, m));
             }
+        }
+        return result;
+    }
+
+    /** The property a name configures, for Ctrl+Click: the field, else the setter. */
+    static @NotNull List<com.jetbrains.php.lang.psi.elements.PhpNamedElement> propertyTargets(
+            @NotNull List<PhpClass> classes, @NotNull String name) {
+        List<com.jetbrains.php.lang.psi.elements.PhpNamedElement> result = new java.util.ArrayList<>();
+        for (PhpClass c : classes) {
+            Field field = c.findFieldByName(name, false);
+            if (field != null) {
+                result.add(field);
+                continue;
+            }
+            Method setter = c.findMethodByName("set" + SmartyPhpTypes.capitalize(name));
+            if (setter != null) result.add(setter);
+        }
+        return result;
+    }
+
+    static void completeAttributes(@NotNull PsiElement position, @NotNull List<PhpClass> classes,
+                                   @NotNull Project project, @NotNull CompletionResultSet rs) {
+        Set<String> present = presentAttributes(position);
+        for (Property p : properties(classes, project)) {
+            if (present.contains(p.name())) continue;
+            rs.addElement(attribute(LookupElementBuilder.create(p.element(), p.name()), p.name(), p.type(), p.owner()));
         }
     }
 
