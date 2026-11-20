@@ -27,6 +27,7 @@
 
     <extensions defaultExtensionNs="com.intellij">
         <gotoDeclarationHandler implementation="com.smartyplugin.editor.SmartyGotoDeclarationHandler"/>
+        <documentationProvider implementation="com.smartyplugin.editor.SmartyDocumentationProvider"/>
         <multiHostInjector implementation="com.smartyplugin.editor.SmartyCodeBlockInjector"/>
         <projectConfigurable parentId="language" id="smarty" displayName="Smarty"
                              instance="com.smartyplugin.lang.SmartyConfigurable"/>

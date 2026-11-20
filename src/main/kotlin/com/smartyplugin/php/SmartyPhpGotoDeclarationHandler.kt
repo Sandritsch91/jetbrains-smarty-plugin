@@ -34,7 +34,7 @@ class SmartyPhpGotoDeclarationHandler : GotoDeclarationHandler {
         return if (targets.isEmpty()) null else targets.toTypedArray()
     }
 
-    private companion object {
+    internal companion object {
         fun targets(token: PsiElement): List<PsiElement> {
             if (SmartyPsiUtil.isType(token, STRING)) {
                 val arrow = SmartyPhpTypes.nextSignificant(token)

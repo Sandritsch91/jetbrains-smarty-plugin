@@ -7,5 +7,6 @@
         <completion.contributor language="SmartyTpl" order="first"
                                 implementationClass="com.smartyplugin.php.SmartyPhpCompletionContributor"/>
         <gotoDeclarationHandler implementation="com.smartyplugin.php.SmartyPhpGotoDeclarationHandler"/>
+        <documentationProvider implementation="com.smartyplugin.php.SmartyPhpDocumentationProvider" order="first"/>
     </extensions>
 </idea-plugin>
