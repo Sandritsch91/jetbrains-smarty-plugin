@@ -127,6 +127,139 @@ public class SmartyFormatterTest extends BasePlatformTestCase {
         doTest(text, text);
     }
 
+    // ------------------------------------------------------------ {registerJs} / {registerCss}
+
+    public void testCodeBlocksKeepTheirStructure() {
+        doTest("""
+                <div>
+                {registerJs}
+                console.log('x');
+                var test = '{$model}';
+                $(function () {
+                if (test) {
+                console.log([
+                1,
+                2
+                ]);
+                }
+                });
+                {/registerJs}
+                {registerCss}
+                * {
+                box-sizing: border-box;
+                }
+                {/registerCss}
+                </div>
+                """, """
+                <div>
+                    {registerJs}
+                        console.log('x');
+                        var test = '{$model}';
+                        $(function () {
+                            if (test) {
+                                console.log([
+                                    1,
+                                    2
+                                ]);
+                            }
+                        });
+                    {/registerJs}
+                    {registerCss}
+                        * {
+                            box-sizing: border-box;
+                        }
+                    {/registerCss}
+                </div>
+                """);
+    }
+
+    public void testCodeBlockAtTopLevelIgnoresBracesInStringsAndComments() {
+        doTest("""
+                {registerJs}
+                var s = "{ not a block";
+                // also not {
+                /* nor { this */
+                foo({
+                a: '}'
+                });
+                {/registerJs}
+                """, """
+                {registerJs}
+                    var s = "{ not a block";
+                    // also not {
+                    /* nor { this */
+                    foo({
+                        a: '}'
+                    });
+                {/registerJs}
+                """);
+    }
+
+    /**
+     * The JavaScript / CSS formatters format the code, spacing and line breaks included.
+     * ("a{color:red}" would be a Smarty tag; a "{" followed by whitespace is CSS.)
+     */
+    public void testCodeUsesLanguageFormatters() {
+        doTest("""
+                <div>
+                {registerJs}
+                if(ready){
+                start( 1,2 );
+                }
+                {/registerJs}
+                {registerCss}
+                a{ color:red;margin:0 }
+                {/registerCss}
+                </div>
+                """, """
+                <div>
+                    {registerJs}
+                        if (ready) {
+                            start(1, 2);
+                        }
+                    {/registerJs}
+                    {registerCss}
+                        a {
+                            color: red;
+                            margin: 0
+                        }
+                    {/registerCss}
+                </div>
+                """);
+    }
+
+    /** Smarty tags in the code stay as they are; the code around them is formatted by the JavaScript formatter. */
+    public void testCodeWithTagsUsesLanguageFormatter() {
+        doTest("""
+                {registerJs}
+                var id={$model->id};
+                var name = '{$model->name|escape:'javascript'}';
+                if(id>0){
+                load( id );
+                }
+                {/registerJs}
+                """, """
+                {registerJs}
+                    var id = {$model->id};
+                    var name = '{$model->name|escape:'javascript'}';
+                    if (id > 0) {
+                        load(id);
+                    }
+                {/registerJs}
+                """);
+    }
+
+    public void testFormattedCodeBlockIsStable() {
+        String text = """
+                {registerJs}
+                    $(function () {
+                        console.log('notifications form js');
+                    });
+                {/registerJs}
+                """;
+        doTest(text, text);
+    }
+
     // ------------------------------------------------------------ inside tags
 
     public void testSpacingInsideTags() {

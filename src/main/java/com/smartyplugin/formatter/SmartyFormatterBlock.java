@@ -26,9 +26,12 @@ import static com.smartyplugin.parser.SmartyElementTypes.*;
 
 final class SmartyFormatterBlock extends TemplateLanguageBlock {
 
+    private final TemplateLanguageBlockFactory factory;
+
     SmartyFormatterBlock(@NotNull TemplateLanguageBlockFactory factory, @NotNull CodeStyleSettings settings,
                          @NotNull ASTNode node, @Nullable List<DataLanguageBlockWrapper> foreignChildren) {
         super(factory, settings, node, foreignChildren);
+        this.factory = factory;
     }
 
     @Override
@@ -50,12 +53,28 @@ final class SmartyFormatterBlock extends TemplateLanguageBlock {
     protected List<Block> buildChildren() {
         if (isAtomic()) return EMPTY;
         if (SmartyTagLayout.isTag(myNode)) return SmartyTagLayout.buildChildren(myNode, getSettings());
+        if (SmartyCodeLayout.isCodeBody(myNode)) return buildCodeChildren();
         return super.buildChildren();
+    }
+
+    /** {registerJs} / {registerCss}: formatted by the JavaScript / CSS formatter, see {@link SmartyCodeLayout}. */
+    private List<Block> buildCodeChildren() {
+        int unit = getSettings().getIndentOptionsByFile(myNode.getPsi().getContainingFile()).INDENT_SIZE;
+        // lines of the body line up like HTML children of the block would
+        int base = isInsideHtmlTagContent() ? unit : 0;
+        SmartyCodeLayout.TagBlocks tags = tag -> {
+            SmartyFormatterBlock block = new SmartyFormatterBlock(factory, getSettings(), tag, null);
+            block.setParent(this);
+            return block;
+        };
+        List<Block> formatted = SmartyCodeLayout.formattedBlocks(myNode, base, tags);
+        return formatted != null ? formatted : SmartyCodeLayout.buildChildren(myNode, base, unit, tags);
     }
 
     @Override
     public @Nullable Spacing getSpacing(@Nullable Block child1, @NotNull Block child2) {
         if (SmartyTagLayout.isTag(myNode)) return SmartyTagLayout.spacing(child1, child2);
+        if (SmartyCodeLayout.isCodeBody(myNode)) return SmartyCodeLayout.spacing(child1, child2);
         return super.getSpacing(child1, child2);
     }
 
