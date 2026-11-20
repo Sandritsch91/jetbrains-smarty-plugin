@@ -1,8 +1,12 @@
 import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
     id("java")
+    id("org.jetbrains.kotlin.jvm") version "2.4.21"
     id("org.jetbrains.intellij.platform") version "2.20.1"
 }
 
@@ -56,6 +60,19 @@ tasks.withType<JavaCompile>().configureEach {
     options.encoding = "UTF-8"
 }
 
+tasks.withType<KotlinCompile>().configureEach {
+    compilerOptions {
+        // Same bytecode level as the Java tasks: sinceBuild 243 (2024.3) runs on Java 21.
+        jvmTarget.set(JvmTarget.JVM_21)
+        // The IDE provides the Kotlin stdlib at runtime (kotlin.stdlib.default.dependency=false in gradle.properties),
+        // so stay on the API of the oldest supported IDE: 2024.3 bundles Kotlin 2.0. Raise it together with sinceBuild.
+        apiVersion.set(KotlinVersion.KOTLIN_2_0)
+        languageVersion.set(KotlinVersion.KOTLIN_2_2)
+        // API 2.0 is deprecated in the current compiler but required by the line above
+        freeCompilerArgs.add("-Xsuppress-version-warnings")
+    }
+}
+
 intellijPlatform {
     pluginConfiguration {
         id = "com.smartyplugin.smarty"
@@ -71,7 +88,8 @@ intellijPlatform {
     // ./gradlew verifyPlugin: JetBrains Plugin Verifier against PhpStorm, a newer IDEA and the IDEA build used for compiling.
     pluginVerification {
         ides {
-            fun versions(name: String) = providers.gradleProperty(name).get().split(",").map { it.trim() }.filter { it.isNotEmpty() }
+            fun versions(name: String) =
+                providers.gradleProperty(name).get().split(",").map { it.trim() }.filter { it.isNotEmpty() }
             versions("verifyPhpStormVersions").forEach { create(IntelliJPlatformType.PhpStorm, it) }
             versions("verifyIdeaVersions").forEach { create(IntelliJPlatformType.IntellijIdeaUltimate, it) }
             val localPath = providers.gradleProperty("platformLocalPath").orNull

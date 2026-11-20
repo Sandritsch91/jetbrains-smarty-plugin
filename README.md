@@ -56,7 +56,7 @@ Install the zip in the IDE via *Settings, Plugins, ⚙, Install Plugin from Disk
 ## Layout
 
 ```
-src/main/java/com/smartyplugin/
+src/main/kotlin/com/smartyplugin/   (Kotlin; tests in src/test/kotlin)
   lang/         language, file type, view provider (Smarty + HTML trees), tag/modifier registry
   lexer/        hand-written restartable lexer and token types
   parser/       PsiBuilder parser: blocks, tags, attributes, modifiers
