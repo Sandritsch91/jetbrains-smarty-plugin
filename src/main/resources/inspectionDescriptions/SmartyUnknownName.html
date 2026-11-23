@@ -1,0 +1,11 @@
+<html>
+<body>
+Reports tags and modifiers that Smarty would not know: neither built in, nor a plugin of the project
+(<code>function.name.php</code>, <code>block.name.php</code>, <code>modifier.name.php</code>,
+<code>$smarty-&gt;registerPlugin(...)</code>), nor a template function (<code>{function name="x"}</code> in the template
+or its layouts) or a class imported with <code>{use class="..."}</code>. With the PHP plugin, PHP functions count as
+known modifiers.
+<p>Off by default: plugins in directories outside the project, or registered in ways that cannot be seen in the
+code, are reported too.</p>
+</body>
+</html>

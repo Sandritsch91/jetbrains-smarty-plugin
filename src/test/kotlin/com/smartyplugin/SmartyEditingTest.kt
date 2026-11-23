@@ -189,6 +189,37 @@ class SmartyEditingTest : BasePlatformTestCase() {
         assertEquals("list.tpl", target?.containingFile?.name)
     }
 
+    fun testRenameVariable() {
+        val list = myFixture.addFileToProject("pages/list.tpl", "{include 'parts/row.tpl' entry=\$e other=1}")
+        val row = myFixture.addFileToProject(
+            "pages/parts/row.tpl",
+            "{\$entry.title} {\"Item \$entry here\"} {\$entryCount} {foreach \$list as \$x}{\$x}{/foreach}",
+        )
+        myFixture.configureFromExistingVirtualFile(row.virtualFile)
+        val handler = com.smartyplugin.editor.SmartyVariableRenameHandler
+        handler.rename(myFixture.file, 3, "item")
+        myFixture.checkResult("{\$item.title} {\"Item \$item here\"} {\$entryCount} {foreach \$list as \$x}{\$x}{/foreach}")
+        assertEquals("{include 'parts/row.tpl' item=\$e other=1}", list.viewProvider.document!!.text)
+    }
+
+    fun testRenameAssignedVariable() {
+        myFixture.configureByText("a.tpl", "{assign var=\"total\" value=1}{\$total + 1}{capture assign=total}x{/capture}")
+        com.smartyplugin.editor.SmartyVariableRenameHandler.rename(myFixture.file, myFixture.editor.document.text.indexOf("\$total") + 2, "sum")
+        myFixture.checkResult("{assign var=\"sum\" value=1}{\$sum + 1}{capture assign=sum}x{/capture}")
+    }
+
+    fun testHighlightVariableUsages() {
+        myFixture.configureByText("a.tpl", "{assign var='n' value=1}{\$n}{\$nn}{\$n|upper}")
+        myFixture.editor.caretModel.moveToOffset(myFixture.editor.document.text.indexOf("\$n}") + 1)
+        val handler = com.smartyplugin.editor.SmartyVariableHighlightUsagesFactory()
+            .createHighlightUsagesHandler(myFixture.editor, myFixture.file)!!
+        handler.highlightUsages()
+        val texts = myFixture.editor.markupModel.allHighlighters
+            .map { myFixture.editor.document.text.substring(it.startOffset, it.endOffset) }
+        assertEquals(texts.toString(), 3, texts.size)
+        assertTrue(texts.toString(), texts.all { it == "n" })
+    }
+
     fun testAttributeCompletion() {
         myFixture.configureByText("c.tpl", "{include fi<caret>}")
         myFixture.completeBasic()

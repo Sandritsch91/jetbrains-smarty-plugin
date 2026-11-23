@@ -330,6 +330,66 @@ class SmartyPhpTest : BasePlatformTestCase() {
         assertEquals("page.tpl", (target as com.intellij.psi.PsiFile).name)
     }
 
+    fun testRenameRenamesPhpKey() {
+        configureTemplate("views/post-comment/index.tpl", "{\$user->name} {\$users}")
+        com.smartyplugin.editor.SmartyVariableRenameHandler.rename(myFixture.file, 3, "member")
+        myFixture.checkResult("{\$member->name} {\$users}")
+        val controller = myFixture.findFileInTempDir("controllers/PostCommentController.php")
+        val php = com.intellij.openapi.fileEditor.FileDocumentManager.getInstance().getDocument(controller)!!.text
+        assertTrue(php, php.contains("['member' => \$user, 'users' => \$users"))
+        assertTrue("other actions keep their variable", php.contains("compact('user')"))
+    }
+
+    fun testRegisteredPlugins() {
+        myFixture.addFileToProject(
+            "app/SmartySetup.php",
+            block(
+                $$"""
+                <?php
+                namespace app;
+
+                /** Shouting text. */
+                function smarty_hello($params) { return 'hello'; }
+
+                class Helper {
+                    /** Upper-case it. */
+                    public static function shout(string $s): string { return strtoupper($s); }
+                }
+
+                function setup(\Smarty $smarty) {
+                    $smarty->registerPlugin('function', 'hello', 'app\smarty_hello');
+                    $smarty->registerPlugin(\Smarty::PLUGIN_MODIFIER, 'shout', [Helper::class, 'shout']);
+                    $smarty->registerPlugin('block', 'panel', [$this, 'panel']);
+                }
+                """,
+            ),
+        )
+        configureTemplate("templates/page.tpl", "{hel<caret>}")
+        myFixture.completeBasic()
+        myFixture.lookupElements?.firstOrNull { it.lookupString == "hello" }?.let {
+            myFixture.lookup.currentItem = it
+            myFixture.finishLookup(com.intellij.codeInsight.lookup.Lookup.NORMAL_SELECT_CHAR)
+        }
+        myFixture.checkResult("{hello <caret>}")
+
+        configureTemplate("templates/page2.tpl", "{\$x|sh<caret>}")
+        myFixture.completeBasic()
+        myFixture.checkResult("{\$x|shout<caret>}")
+
+        configureTemplate("templates/page3.tpl", "{hello}{\$x|shout}")
+        val text = myFixture.editor.document.text
+        val hello = GotoDeclarationAction.findTargetElement(project, myFixture.editor, text.indexOf("hello") + 1)
+        assertEquals("smarty_hello", (hello as PhpNamedElement).name)
+        val shout = GotoDeclarationAction.findTargetElement(project, myFixture.editor, text.indexOf("shout") + 1)
+        assertEquals("shout", (shout as Method).name)
+
+        // hover: PHP's documentation of the callback
+        myFixture.editor.caretModel.moveToOffset(text.indexOf("shout") + 1)
+        val element = com.intellij.codeInsight.documentation.DocumentationManager.getInstance(project)
+            .findTargetElement(myFixture.editor, myFixture.file)
+        assertEquals("shout", (element as Method).name)
+    }
+
     private fun addHtmlHelper() {
         myFixture.addFileToProject(
             "vendor/yii/bootstrap5/Html.php",

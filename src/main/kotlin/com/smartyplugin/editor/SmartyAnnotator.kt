@@ -29,6 +29,7 @@ class SmartyAnnotator : Annotator {
             if (open != null && name != null) {
                 holder.newAnnotation(HighlightSeverity.ERROR, "Missing closing tag " + d(element).closeTag(name))
                     .range(open.textRange)
+                    .withFix(SmartyTagFixes.InsertClosingTag(element, d(element).closeTag(name)))
                     .create()
             }
         } else if (type === CLOSE_TAG && !SmartyPsiUtil.isType(node.treeParent, BLOCK)) {
@@ -40,6 +41,7 @@ class SmartyAnnotator : Annotator {
             }
             holder.newAnnotation(HighlightSeverity.ERROR, message)
                 .range(node.textRange)
+                .withFix(SmartyTagFixes.RemoveTag(element))
                 .create()
         } else if (type === MIDDLE_TAG) {
             val name = SmartyPsiUtil.tagName(node)

@@ -4,7 +4,12 @@ import com.intellij.lang.documentation.AbstractDocumentationProvider
 import com.intellij.openapi.editor.Editor
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
+import com.intellij.psi.util.PsiTreeUtil
+import com.jetbrains.php.lang.psi.elements.Function
 import com.jetbrains.php.lang.psi.elements.PhpTypedElement
+import com.smartyplugin.lang.SmartyPlugins
+import com.smartyplugin.lexer.SmartyTokenTypes.MODIFIER_NAME
+import com.smartyplugin.lexer.SmartyTokenTypes.TAG_NAME
 import com.smartyplugin.lang.SmartyFileViewProvider
 import com.smartyplugin.lexer.SmartyTokenTypes.VARIABLE
 import com.smartyplugin.psi.SmartyPsiUtil
@@ -28,12 +33,25 @@ class SmartyPhpDocumentationProvider : AbstractDocumentationProvider() {
         if (SmartyPsiUtil.isType(token, VARIABLE)) return variableTarget(token)
         // a translated message documents itself: its translations in all languages
         if (SmartyYiiTranslations.messageCategory(token) != null) return token
+        pluginTarget(token)?.let { return it }
         return SmartyPhpGotoDeclarationHandler.targets(token).firstOrNull()
     }
 
     override fun generateDoc(element: PsiElement?, originalElement: PsiElement?): String? {
         if (element == null || element.language !== com.smartyplugin.lang.SmartyLanguage) return null
         return SmartyYiiTranslations.documentation(element)
+    }
+
+    /** {box} / |money of a project plugin: its PHP function (smarty_block_box() in block.box.php, a registerPlugin callback). */
+    private fun pluginTarget(token: PsiElement): PsiElement? {
+        val plugins = when {
+            SmartyPsiUtil.isType(token, TAG_NAME) -> SmartyPlugins.findTag(token.project, token.text)
+            SmartyPsiUtil.isType(token, MODIFIER_NAME) -> SmartyPlugins.findModifier(token.project, token.text)
+            else -> return null
+        }
+        val target = plugins.firstOrNull()?.target ?: return null
+        if (target !is PsiFile) return target
+        return PsiTreeUtil.findChildrenOfType(target, Function::class.java).firstOrNull { it.name.startsWith("smarty_") }
     }
 
     private fun variableTarget(variable: PsiElement): PsiElement? {

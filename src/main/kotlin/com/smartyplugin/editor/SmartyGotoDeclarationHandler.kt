@@ -6,8 +6,11 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.TokenType
 import com.intellij.psi.util.PsiTreeUtil
 import com.smartyplugin.lang.SmartyFileViewProvider
+import com.smartyplugin.lang.SmartyPlugins
 import com.smartyplugin.lang.SmartyVariableProvider
 import com.smartyplugin.lexer.SmartyTokenTypes.KEYWORD
+import com.smartyplugin.lexer.SmartyTokenTypes.MODIFIER_NAME
+import com.smartyplugin.lexer.SmartyTokenTypes.TAG_NAME
 import com.smartyplugin.lexer.SmartyTokenTypes.VARIABLE
 import com.smartyplugin.parser.SmartyElementTypes.ATTRIBUTE
 import com.smartyplugin.parser.SmartyElementTypes.OPEN_TAG
@@ -26,6 +29,13 @@ class SmartyGotoDeclarationHandler : GotoDeclarationHandler {
         SmartyInheritance.asBlockName(token)?.let { name ->
             return SmartyInheritance.overridden(name)?.let { arrayOf(it) }
         }
+        // {box}...{/box}, |money: the project's plugin (block.box.php, registerPlugin(...))
+        val plugins = when {
+            SmartyPsiUtil.isType(token, TAG_NAME) -> SmartyPlugins.findTag(token.project, token.text)
+            SmartyPsiUtil.isType(token, MODIFIER_NAME) -> SmartyPlugins.findModifier(token.project, token.text)
+            else -> emptyList()
+        }
+        if (plugins.isNotEmpty()) return plugins.map { it.target }.distinct().toTypedArray()
         // {#title#}: its line in the loaded .conf file(s)
         SmartyConfigVars.nameAt(token)?.let { configName ->
             val targets = SmartyConfigVars.available(file).filter { it.name == configName }.map { it.target }

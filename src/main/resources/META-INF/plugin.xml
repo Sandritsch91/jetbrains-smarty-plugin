@@ -23,14 +23,25 @@
     <extensionPoints>
         <extensionPoint qualifiedName="com.smartyplugin.variableProvider"
                         interface="com.smartyplugin.lang.SmartyVariableProvider" dynamic="true"/>
+        <extensionPoint qualifiedName="com.smartyplugin.pluginProvider"
+                        interface="com.smartyplugin.lang.SmartyPluginProvider" dynamic="true"/>
     </extensionPoints>
 
     <extensions defaultExtensionNs="com.smartyplugin">
         <variableProvider implementation="com.smartyplugin.psi.SmartyIncludeVariableProvider"/>
+        <pluginProvider implementation="com.smartyplugin.lang.SmartyPluginFileProvider"/>
     </extensions>
 
     <extensions defaultExtensionNs="com.intellij">
         <gotoDeclarationHandler implementation="com.smartyplugin.editor.SmartyGotoDeclarationHandler"/>
+        <renameHandler implementation="com.smartyplugin.editor.SmartyVariableRenameHandler"/>
+        <liveTemplateContext contextId="SMARTY" implementation="com.smartyplugin.editor.SmartyTemplateContextType"/>
+        <defaultLiveTemplates file="/liveTemplates/Smarty.xml"/>
+        <indexPatternBuilder implementation="com.smartyplugin.editor.SmartyIndexPatternBuilder"/>
+        <localInspection language="SmartyTpl" shortName="SmartyUnknownName" displayName="Unknown tag or modifier"
+                         groupName="Smarty" enabledByDefault="false" level="WARNING"
+                         implementationClass="com.smartyplugin.editor.SmartyUnknownNameInspection"/>
+        <highlightUsagesHandlerFactory implementation="com.smartyplugin.editor.SmartyVariableHighlightUsagesFactory"/>
         <documentationProvider implementation="com.smartyplugin.editor.SmartyDocumentationProvider"/>
         <multiHostInjector implementation="com.smartyplugin.editor.SmartyCodeBlockInjector"/>
         <projectConfigurable parentId="language" id="smarty" displayName="Smarty"

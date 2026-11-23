@@ -2,6 +2,7 @@
 <idea-plugin>
     <extensions defaultExtensionNs="com.smartyplugin">
         <variableProvider implementation="com.smartyplugin.php.SmartyPhpVariableProvider"/>
+        <pluginProvider implementation="com.smartyplugin.php.SmartyPhpRegisteredPlugins"/>
     </extensions>
     <extensions defaultExtensionNs="com.intellij">
         <completion.contributor language="SmartyTpl" order="first"

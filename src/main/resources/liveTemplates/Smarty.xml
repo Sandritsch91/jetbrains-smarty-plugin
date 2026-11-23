@@ -1,0 +1,51 @@
+<templateSet group="Smarty">
+  <template name="if" value="{if $COND$}$SELECTION$$END${/if}" description="{if}…{/if}" toReformat="false" toShortenFQNames="false">
+    <variable name="COND" expression="" defaultValue="&quot;$condition&quot;" alwaysStopAt="true"/>
+    <context><option name="SMARTY" value="true"/></context>
+  </template>
+  <template name="ife" value="{if $COND$}$SELECTION$$END${else}{/if}" description="{if}…{else}…{/if}" toReformat="false" toShortenFQNames="false">
+    <variable name="COND" expression="" defaultValue="&quot;$condition&quot;" alwaysStopAt="true"/>
+    <context><option name="SMARTY" value="true"/></context>
+  </template>
+  <template name="fe" value="{foreach $ITEMS$ as $ITEM$}$SELECTION$$END${/foreach}" description="{foreach $items as $item}…{/foreach}" toReformat="false" toShortenFQNames="false">
+    <variable name="ITEMS" expression="" defaultValue="&quot;$items&quot;" alwaysStopAt="true"/>
+    <variable name="ITEM" expression="" defaultValue="&quot;$item&quot;" alwaysStopAt="true"/>
+    <context><option name="SMARTY" value="true"/></context>
+  </template>
+  <template name="fek" value="{foreach $ITEMS$ as $KEY$ =&gt; $ITEM$}$SELECTION$$END${/foreach}" description="{foreach $items as $key =&gt; $item}…{/foreach}" toReformat="false" toShortenFQNames="false">
+    <variable name="ITEMS" expression="" defaultValue="&quot;$items&quot;" alwaysStopAt="true"/>
+    <variable name="KEY" expression="" defaultValue="&quot;$key&quot;" alwaysStopAt="true"/>
+    <variable name="ITEM" expression="" defaultValue="&quot;$item&quot;" alwaysStopAt="true"/>
+    <context><option name="SMARTY" value="true"/></context>
+  </template>
+  <template name="block" value="{block name=&quot;$NAME$&quot;}$SELECTION$$END${/block}" description="{block name=&quot;…&quot;}…{/block}" toReformat="false" toShortenFQNames="false">
+    <variable name="NAME" expression="" defaultValue="&quot;content&quot;" alwaysStopAt="true"/>
+    <context><option name="SMARTY" value="true"/></context>
+  </template>
+  <template name="cap" value="{capture name=&quot;$NAME$&quot;}$SELECTION$$END${/capture}" description="{capture name=&quot;…&quot;}…{/capture}" toReformat="false" toShortenFQNames="false">
+    <variable name="NAME" expression="" defaultValue="" alwaysStopAt="true"/>
+    <context><option name="SMARTY" value="true"/></context>
+  </template>
+  <template name="lit" value="{literal}$SELECTION$$END${/literal}" description="{literal}…{/literal}" toReformat="false" toShortenFQNames="false">
+    <context><option name="SMARTY" value="true"/></context>
+  </template>
+  <template name="strip" value="{strip}$SELECTION$$END${/strip}" description="{strip}…{/strip}" toReformat="false" toShortenFQNames="false">
+    <context><option name="SMARTY" value="true"/></context>
+  </template>
+  <template name="cmt" value="{* $SELECTION$$END$ *}" description="{* comment *}" toReformat="false" toShortenFQNames="false">
+    <context><option name="SMARTY" value="true"/></context>
+  </template>
+  <template name="inc" value="{include file=&quot;$FILE$&quot;$END$}" description="{include file=&quot;…&quot;}" toReformat="false" toShortenFQNames="false">
+    <variable name="FILE" expression="" defaultValue="" alwaysStopAt="true"/>
+    <context><option name="SMARTY" value="true"/></context>
+  </template>
+  <template name="ext" value="{extends file=&quot;$FILE$&quot;}$END$" description="{extends file=&quot;…&quot;}" toReformat="false" toShortenFQNames="false">
+    <variable name="FILE" expression="" defaultValue="" alwaysStopAt="true"/>
+    <context><option name="SMARTY" value="true"/></context>
+  </template>
+  <template name="as" value="{assign var=&quot;$NAME$&quot; value=$VALUE$}$END$" description="{assign var=&quot;…&quot; value=…}" toReformat="false" toShortenFQNames="false">
+    <variable name="NAME" expression="" defaultValue="" alwaysStopAt="true"/>
+    <variable name="VALUE" expression="" defaultValue="" alwaysStopAt="true"/>
+    <context><option name="SMARTY" value="true"/></context>
+  </template>
+</templateSet>

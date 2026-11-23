@@ -18,6 +18,8 @@ import com.smartyplugin.lang.SmartyDelimiters
 import com.smartyplugin.lang.SmartyIcons
 import com.smartyplugin.lang.SmartyLanguage
 import com.smartyplugin.lang.SmartyTags
+import com.smartyplugin.lang.SmartyPluginProvider
+import com.smartyplugin.lang.SmartyPlugins
 import com.smartyplugin.lang.SmartyVariableProvider
 import com.smartyplugin.lexer.SmartyTokenTypes.AT
 import com.smartyplugin.lexer.SmartyTokenTypes.ATTR_NAME
@@ -68,7 +70,7 @@ class SmartyCompletionContributor : CompletionContributor() {
                 rs.stopHere()
             }
             type === MODIFIER_NAME -> {
-                completeModifiers(rs)
+                completeModifiers(position.project, rs)
                 rs.stopHere()
             }
             type === VARIABLE -> {
@@ -96,6 +98,21 @@ class SmartyCompletionContributor : CompletionContributor() {
                 }
                 completeAttributes(position, rs)
             }
+        }
+    }
+
+    /** A custom plugin tag: `{name |}`, for a block `{name |}{/name}`. */
+    private class CustomTagInsertHandler(private val block: Boolean) : InsertHandler<LookupElement> {
+        override fun handleInsert(context: InsertionContext, item: LookupElement) {
+            val doc = context.document
+            val tail = context.tailOffset
+            val d = SmartyDelimiters.of(context.project)
+            if (startsWith(doc.charsSequence, tail, d.right)) {
+                doc.insertString(tail, " ")
+            } else {
+                doc.insertString(tail, " " + d.right + if (block) d.closeTag(item.lookupString) else "")
+            }
+            context.editor.caretModel.moveToOffset(tail + 1)
         }
     }
 
@@ -186,6 +203,21 @@ class SmartyCompletionContributor : CompletionContributor() {
                 val priority = if (tag.source == "Yii2") -1.0 else 0.0
                 rs.addElement(PrioritizedLookupElement.withPriority(element, priority))
             }
+            // the project's plugins: function.x.php, block.x.php, registerPlugin()
+            for (p in SmartyPlugins.tags(file.project)) {
+                if (!seen.add(p.name)) continue
+                val block = p.kind == SmartyPluginProvider.Kind.BLOCK
+                rs.addElement(
+                    PrioritizedLookupElement.withPriority(
+                        LookupElementBuilder.create(p.name)
+                            .withIcon(SmartyIcons.FILE)
+                            .withTailText(if (block) " …" + d.closeTag(p.name) else null, true)
+                            .withTypeText(p.source, true)
+                            .withInsertHandler(CustomTagInsertHandler(block)),
+                        0.5,
+                    ),
+                )
+            }
             // custom tags and plugins already used in this file
             val smarty = SmartyPsiUtil.smartyFile(file) ?: return
             PsiTreeUtil.processElements(smarty) { e ->
@@ -271,7 +303,18 @@ class SmartyCompletionContributor : CompletionContributor() {
 
         // ------------------------------------------------------------ modifiers
 
-        fun completeModifiers(rs: CompletionResultSet) {
+        fun completeModifiers(project: com.intellij.openapi.project.Project, rs: CompletionResultSet) {
+            // Smarty's own plugins (vendor/smarty/.../modifier.truncate.php) are listed as built-ins
+            val seen = SmartyTags.allModifiers().mapTo(HashSet()) { it.name }
+            for (p in SmartyPlugins.modifiers(project)) {
+                if (!seen.add(p.name)) continue
+                rs.addElement(
+                    PrioritizedLookupElement.withPriority(
+                        LookupElementBuilder.create(p.name).withIcon(AllIcons.Nodes.Function).withTypeText(p.source, true),
+                        1.0,
+                    ),
+                )
+            }
             for (m in SmartyTags.allModifiers()) {
                 val element = LookupElementBuilder.create(m.name)
                     .withIcon(AllIcons.Nodes.Function)
