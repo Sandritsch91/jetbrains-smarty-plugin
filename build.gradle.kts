@@ -1,3 +1,4 @@
+import org.jetbrains.changelog.Changelog
 import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
@@ -8,9 +9,10 @@ plugins {
     id("java")
     id("org.jetbrains.kotlin.jvm") version "2.4.21"
     id("org.jetbrains.intellij.platform") version "2.20.1"
+    id("org.jetbrains.changelog") version "2.2.1"
 }
 
-group = "com.smartyplugin"
+group = "io.github.sandritsch91"
 version = providers.gradleProperty("pluginVersion").get()
 
 repositories {
@@ -75,13 +77,27 @@ tasks.withType<KotlinCompile>().configureEach {
 
 intellijPlatform {
     pluginConfiguration {
-        id = "com.smartyplugin.smarty"
+        id = "io.github.sandritsch91.smarty"
         name = "Smarty Templates"
         version = project.version.toString()
         ideaVersion {
             sinceBuild = "243"
             untilBuild = provider { null }
         }
+        // the section of CHANGELOG.md for this version (or [Unreleased] while there is none)
+        changeNotes = provider {
+            val item = changelog.getOrNull(project.version.toString()) ?: changelog.getUnreleased()
+            changelog.renderItem(item.withHeader(false).withEmptySections(false), Changelog.OutputType.HTML)
+        }
+    }
+    // Marketplace release (.github/workflows/release.yml): the certificate and token come from environment secrets
+    signing {
+        certificateChain = providers.environmentVariable("CERTIFICATE_CHAIN")
+        privateKey = providers.environmentVariable("PRIVATE_KEY")
+        password = providers.environmentVariable("PRIVATE_KEY_PASSWORD")
+    }
+    publishing {
+        token = providers.environmentVariable("PUBLISH_TOKEN")
     }
     buildSearchableOptions = false
     instrumentCode = false
@@ -113,4 +129,9 @@ tasks.test {
         exclude("**/SmartyPhpTest*", "**/SmartyYiiTest*", "**/SmartyDocumentationTest*")
         systemProperty("smarty.withoutPhp", "true")
     }
+}
+
+changelog {
+    groups.empty()
+    repositoryUrl = "https://github.com/Sandritsch91/jetbrains-smarty-plugin"
 }

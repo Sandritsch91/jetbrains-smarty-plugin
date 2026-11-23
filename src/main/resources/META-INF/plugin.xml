@@ -1,20 +1,36 @@
 <idea-plugin>
-    <id>com.smartyplugin.smarty</id>
+    <id>io.github.sandritsch91.smarty</id>
     <name>Smarty Templates</name>
-    <vendor>smartyplugin</vendor>
+    <vendor url="https://github.com/Sandritsch91/jetbrains-smarty-plugin">Sandritsch91</vendor>
 
     <description><![CDATA[
-    Support for <a href="https://www.smarty.net/">Smarty</a> templates (<code>.tpl</code>, <code>.smarty</code>):
+    Support for <a href="https://www.smarty.net/">Smarty</a> 3/4/5 templates (<code>.tpl</code>, <code>.smarty</code>)
+    in IntelliJ IDEA, PhpStorm and other IDEs with HTML support.
+    <h3>Editing</h3>
     <ul>
-      <li>Syntax highlighting of Smarty tags on top of full HTML/CSS/JavaScript highlighting</li>
-      <li>Completion of tags, closing tags, attributes, modifiers, variables and <code>$smarty</code> properties</li>
-      <li>Formatting: Smarty blocks are indented together with the surrounding HTML</li>
-      <li>Error highlighting for unclosed blocks and misplaced <code>{else}</code> tags</li>
-      <li>Folding, brace and tag-pair matching, <code>{* comments *}</code>, auto-closing of block tags</li>
-      <li>Ctrl+Click navigation for <code>{include}</code> / <code>{extends}</code> file paths</li>
+      <li>Highlighting of Smarty tags, also inside double-quoted strings, on top of full HTML/CSS/JavaScript</li>
+      <li>Completion of tags, closing tags, attributes, modifiers, variables, <code>$smarty</code> properties and <code>{#config#}</code> variables</li>
+      <li>Formatting: Smarty blocks indented with the HTML, spacing inside tags; <code>{registerJs}</code> / <code>{registerCss}</code> code formatted as JavaScript / CSS</li>
+      <li>Errors for unclosed blocks and misplaced <code>{else}</code> tags, with quick fixes</li>
+      <li>Live templates, folding, brace and tag-pair matching, auto-closing of block tags, <code>{* TODO *}</code> in the TODO window</li>
+      <li>Rename of template variables, also where PHP passes them in</li>
+      <li>Custom delimiters (<code>{{ }}</code>, <code>&lt;!--{ }--&gt;</code>) per project</li>
     </ul>
-    The template data language can be changed under Settings | Languages &amp; Frameworks | Template Data Languages.
+    <h3>Navigation</h3>
+    <ul>
+      <li>Ctrl+Click on <code>{include}</code> / <code>{extends}</code> / <code>{config_load}</code> paths, template variables and config variables</li>
+      <li>Template inheritance: block name completion, navigation and gutter icons between overriding blocks</li>
+      <li>The project's Smarty plugins (<code>function.x.php</code>, <code>registerPlugin()</code>): completion and navigation</li>
+    </ul>
+    <h3>PHP and Yii2 (with the PHP plugin, bundled in PhpStorm)</h3>
+    <ul>
+      <li>Variables passed in by <code>render()</code>, <code>assign()</code> or <code>{include}</code>, with their PHP types and member completion along chains</li>
+      <li>Ctrl+Click and hover documentation for classes, members, widget tags and their attributes; from <code>render('view')</code> to the template</li>
+      <li>Yii2 widgets as tags and in <code>::widget([...])</code> configuration, <code>$app</code> / <code>$this</code>, all yii2-smarty functions and blocks</li>
+      <li>Yii routes in <code>{url}</code> / <code>Url::to()</code> and translations in <code>|t</code> / <code>Yii::t()</code> from <code>.po</code> and PHP message files</li>
+    </ul>
     ]]></description>
+
 
     <depends>com.intellij.modules.platform</depends>
     <depends>com.intellij.modules.xml</depends>

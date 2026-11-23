@@ -75,3 +75,34 @@ src/main/kotlin/com/smartyplugin/   (Kotlin; tests in src/test/kotlin)
   formatter/    template-language formatter on top of the HTML formatter
   actions/      "New Smarty Template" action
 ```
+
+## Releasing
+
+Versions are released from tags by GitHub Actions (`.github/workflows/release.yml`): the workflow runs the tests,
+signs the plugin, publishes it to JetBrains Marketplace and creates a GitHub release with the signed zip.
+The Marketplace change notes are the version's section of `CHANGELOG.md`.
+
+One-time setup:
+
+1. Sign in to [JetBrains Marketplace](https://plugins.jetbrains.com/) and upload the first version by hand
+   (*Upload plugin*, the zip from `.\gradlew.bat buildPlugin`); Marketplace only accepts updates through the API.
+2. Create a signing certificate:
+   ```shell
+   openssl genpkey -aes-256-cbc -algorithm RSA -out private_encrypted.pem -pkeyopt rsa_keygen_bits:4096
+   openssl rsa -in private_encrypted.pem -out private.pem
+   openssl req -key private.pem -new -x509 -days 3650 -out chain.crt
+   ```
+3. Create a Marketplace token (*Profile, My Tokens*).
+4. In the GitHub repository, *Settings, Secrets and variables, Actions*, add `CERTIFICATE_CHAIN` (contents of
+   `chain.crt`), `PRIVATE_KEY` (contents of `private.pem`), `PRIVATE_KEY_PASSWORD` and `PUBLISH_TOKEN`.
+   Keep the key files out of the repository.
+
+Each release:
+
+1. Move the entries under `[Unreleased]` in `CHANGELOG.md` to a new version section (`.\gradlew.bat patchChangelog`
+   does this for `pluginVersion`) and set `pluginVersion` in `gradle.properties`.
+2. Commit, then tag and push: `git tag v0.2.0`, `git push origin master v0.2.0`.
+
+## License
+
+[MIT](LICENSE)
