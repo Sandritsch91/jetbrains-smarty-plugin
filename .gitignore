@@ -4,3 +4,6 @@ build/
 .idea/
 out/
 *.iml
+/chain.crt
+/private.pem
+/private_encrypted.pem
