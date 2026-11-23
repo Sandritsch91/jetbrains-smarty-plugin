@@ -39,6 +39,11 @@ class SmartyPhpGotoDeclarationHandler : GotoDeclarationHandler {
             if (SmartyPsiUtil.isType(token, STRING)) {
                 if (SmartyYiiRoutes.isRoute(token)) return SmartyYiiRoutes.resolve(token)
                 if (SmartyYiiTranslations.messageCategory(token) != null) return SmartyYiiTranslations.resolve(token)
+                // '_form' in {$this->render('_form', [...])}
+                (token.parent as? com.smartyplugin.psi.SmartyStringLiteral)?.let { literal ->
+                    val views = SmartyPhpRenderCalls.viewTargets(literal)
+                    if (views.isNotEmpty()) return views
+                }
                 val arrow = SmartyPhpTypes.nextSignificant(token)
                 if (arrow != null && SmartyPsiUtil.isType(arrow, DOUBLE_ARROW)) {
                     // 'pluginOptions' => ... in Select2::widget([...])

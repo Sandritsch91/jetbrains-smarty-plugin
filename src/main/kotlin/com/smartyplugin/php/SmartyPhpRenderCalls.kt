@@ -190,6 +190,42 @@ internal object SmartyPhpRenderCalls {
         }
     }
 
+    // ------------------------------------------------------------------ view name -> template (Ctrl+Click)
+
+    /** '_form' in {$this->render('_form', [...])}: the template(s) it renders. */
+    fun viewTargets(literal: SmartyStringLiteral): List<PsiFile> {
+        if (!isTemplateRenderCall(literal)) return emptyList()
+        val caller = literal.containingFile.originalFile.viewProvider.virtualFile
+        val view = SmartyPsiUtil.unquote(literal.text)
+        return templatesNamed(literal.project, view) { matchesTemplateView(literal, caller, withoutExtension(it.path)) }
+    }
+
+    /** 'index' in $this->render('index', [...]) / $smarty->display('page.tpl') in PHP: the Smarty template(s). */
+    fun viewTargets(literal: StringLiteralExpression): List<PsiFile> {
+        val call = PsiTreeUtil.getParentOfType(literal, MethodReference::class.java) ?: return emptyList()
+        if (call.parameters.isEmpty() || call.parameters[0] !== literal) return emptyList()
+        val method = call.name ?: return emptyList()
+        val view = literal.contents
+        return when (method) {
+            in YII_RENDER -> templatesNamed(literal.project, view) { matchesYiiView(literal, call, withoutExtension(it.path)) }
+            in SMARTY_RENDER -> templatesNamed(literal.project, view) { pathEndsWith(withoutExtension(it.path), withoutExtension(view)) }
+            else -> emptyList()
+        }
+    }
+
+    /** Smarty templates whose file name fits the view name ("_form" -> _form.tpl / _form.smarty) and [matches]. */
+    private fun templatesNamed(project: Project, view: String, matches: (VirtualFile) -> Boolean): List<PsiFile> {
+        val base = view.replace('\\', '/').substringAfterLast('/')
+        if (base.isEmpty() || base.contains('$')) return emptyList()
+        val stem = withoutExtension(base)
+        val names = if (stem != base) listOf(base) else listOf("$base.tpl", "$base.smarty")
+        val scope = GlobalSearchScope.projectScope(project)
+        val psiManager = PsiManager.getInstance(project)
+        return names.flatMap { FilenameIndex.getVirtualFilesByName(it, scope) }
+            .filter(matches)
+            .mapNotNull { psiManager.findFile(it) }
+    }
+
     // ------------------------------------------------------------------ view name matching
 
     private fun matchesYiiView(literal: StringLiteralExpression, call: MethodReference, templatePath: String): Boolean {

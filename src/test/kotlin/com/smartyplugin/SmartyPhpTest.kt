@@ -303,6 +303,33 @@ class SmartyPhpTest : BasePlatformTestCase() {
         assertTrue(items.toString(), items.containsAll(listOf("id", "title")))
     }
 
+    fun testGotoViewFromTemplateRender() {
+        myFixture.addFileToProject("src/views/admin/_form.tpl", "form")
+        myFixture.addFileToProject("src/views/other/_form.tpl", "other form")
+        configureTemplate("src/views/admin/create.tpl", "{\$this->render('_fo<caret>rm', ['model' => \$model])}")
+        val target = GotoDeclarationAction.findTargetElement(project, myFixture.editor, myFixture.caretOffset)
+        val path = (target as com.intellij.psi.PsiFile).virtualFile.path
+        assertTrue(path, path.endsWith("src/views/admin/_form.tpl"))
+    }
+
+    fun testGotoViewFromController() {
+        myFixture.addFileToProject("views/post-comment/index.tpl", "index")
+        myFixture.addFileToProject("views/site/index.tpl", "other index")
+        myFixture.configureFromTempProjectFile("controllers/PostCommentController.php")
+        val offset = myFixture.editor.document.text.indexOf("'index'") + 2
+        val target = GotoDeclarationAction.findTargetElement(project, myFixture.editor, offset)
+        val path = (target as com.intellij.psi.PsiFile).virtualFile.path
+        assertTrue(path, path.endsWith("/views/post-comment/index.tpl"))
+    }
+
+    fun testGotoTemplateFromSmartyDisplay() {
+        myFixture.addFileToProject("templates/page.tpl", "page")
+        myFixture.configureFromTempProjectFile("legacy/page.php")
+        val offset = myFixture.editor.document.text.indexOf("'page.tpl'") + 2
+        val target = GotoDeclarationAction.findTargetElement(project, myFixture.editor, offset)
+        assertEquals("page.tpl", (target as com.intellij.psi.PsiFile).name)
+    }
+
     private fun addHtmlHelper() {
         myFixture.addFileToProject(
             "vendor/yii/bootstrap5/Html.php",
