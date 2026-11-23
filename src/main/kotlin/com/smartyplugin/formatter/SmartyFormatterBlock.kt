@@ -83,10 +83,10 @@ internal class SmartyFormatterBlock(
         if (parent is SmartyFormatterBlock) {
             val parentType = parent.myNode.elementType
             if (type === BLOCK_BODY) {
-                return if (parent.isInsideHtmlTagContent()) Indent.getNoneIndent() else Indent.getNormalIndent()
+                return if (parent.isInsideHtmlTagContent()) Indent.getNoneIndent() else BODY_INDENT
             }
             if (parentType === BLOCK_BODY) {
-                return if (parent.isInsideHtmlTagContent()) Indent.getNormalIndent() else Indent.getNoneIndent()
+                return if (parent.isInsideHtmlTagContent()) BODY_INDENT else Indent.getNoneIndent()
             }
         }
         return Indent.getNoneIndent()
@@ -142,6 +142,13 @@ internal class SmartyFormatterBlock(
     }
 
     private companion object {
+        /**
+         * Indent of a block body. The body starts right after the opening tag, on its line, so a plain indent would
+         * only move the body's first line; enforcing it to children also indents the continuation lines of a
+         * multi-line tag inside the body (`{$a = [` ... `]}`).
+         */
+        val BODY_INDENT: Indent = Indent.getIndent(Indent.Type.NORMAL, false, true)
+
         /** java.lang.String.isBlank(): only [Character.isWhitespace] counts, unlike Kotlin's isBlank(). */
         fun isJavaBlank(s: String): Boolean = s.all { Character.isWhitespace(it) }
     }

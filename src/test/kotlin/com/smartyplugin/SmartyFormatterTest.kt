@@ -496,4 +496,43 @@ class SmartyFormatterTest : BasePlatformTestCase() {
         )
         doTest(text, text)
     }
+
+    fun testArrayAssignmentInsideBlock() {
+        val text = block(
+            $$"""
+            {if $app->user->can('relevanceAdministrator')}
+                {$buttons[] = [
+                    'icon' => 'file-excel',
+                    'label' => 'Excel',
+                    'url' => {path route="excel"}|cat:'?'|cat:http_build_query($app->request->get()),
+                    'options' => [
+                        'class' => ['btn', 'btn-secondary'],
+                        'data' => ['pjax' => 0]
+                    ]
+                ]}
+            {/if}
+            """,
+        )
+        doTest(text, text)
+    }
+
+    fun testArrayAssignmentInNestedBlocksAndHtml() {
+        val text = block(
+            $$"""
+            <div>
+                {foreach $items as $item}
+                    {if $item}
+                        {$buttons[] = [
+                            'label' => $item,
+                            'options' => [
+                                'class' => ['btn']
+                            ]
+                        ]}
+                    {/if}
+                {/foreach}
+            </div>
+            """,
+        )
+        doTest(text, text)
+    }
 }
