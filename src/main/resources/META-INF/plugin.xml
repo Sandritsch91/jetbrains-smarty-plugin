@@ -52,6 +52,8 @@
         <colorSettingsPage implementation="com.smartyplugin.highlighting.SmartyColorSettingsPage"/>
 
         <annotator language="SmartyTpl" implementationClass="com.smartyplugin.editor.SmartyAnnotator"/>
+        <codeInsight.lineMarkerProvider language="SmartyTpl"
+                                        implementationClass="com.smartyplugin.editor.SmartyBlockLineMarkerProvider"/>
         <lang.foldingBuilder language="SmartyTpl" implementationClass="com.smartyplugin.editor.SmartyFoldingBuilder"/>
         <lang.commenter language="SmartyTpl" implementationClass="com.smartyplugin.editor.SmartyCommenter"/>
         <lang.braceMatcher language="SmartyTpl" implementationClass="com.smartyplugin.editor.SmartyBraceMatcher"/>

@@ -93,7 +93,7 @@ internal object SmartyYiiTranslations {
             val ctx = context
             val msg = id?.toString()
             if (ctx != null && !msg.isNullOrEmpty()) {
-                out.add(Message(ctx, msg, language, str?.toString() ?: "", PoEntry(file, idOffset, "$language: ${str ?: ""}")))
+                out.add(Message(ctx, msg, language, str?.toString() ?: "", com.smartyplugin.psi.SmartyFileLocation(file, idOffset, "$language: ${str ?: ""}")))
             }
             context = null; id = null; str = null; current = null
         }
@@ -136,23 +136,6 @@ internal object SmartyYiiTranslations {
     }
 
     /** A `msgid` line in a .po file, as a navigation target. */
-    private class PoEntry(private val file: PsiFile, private val offset: Int, private val label: String) : FakePsiElement() {
-        override fun getParent(): PsiElement = file
-        override fun getContainingFile(): PsiFile = file
-        override fun getTextOffset(): Int = offset
-        override fun getTextRange(): TextRange = TextRange(offset, offset)
-        override fun getName(): String = label
-        override fun getPresentableText(): String = label
-        override fun getLocationString(): String = file.virtualFile?.path ?: file.name
-        override fun getIcon(open: Boolean): Icon = AllIcons.FileTypes.Text
-        override fun canNavigate(): Boolean = true
-        override fun canNavigateToSource(): Boolean = true
-        override fun navigate(requestFocus: Boolean) {
-            val vf = file.virtualFile ?: return
-            OpenFileDescriptor(file.project, vf, offset).navigate(requestFocus)
-        }
-    }
-
     // ------------------------------------------------------------------ PHP message files
 
     private fun readPhpMessages(psi: PsiManager, languageDir: VirtualFile, out: MutableList<Message>) {

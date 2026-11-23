@@ -28,6 +28,8 @@ import com.smartyplugin.lexer.SmartyTokenTypes.SLASH
 import com.smartyplugin.lexer.SmartyTokenTypes.TAG_NAME
 import com.smartyplugin.lexer.SmartyTokenTypes.VARIABLE
 import com.smartyplugin.parser.SmartyElementTypes.ATTRIBUTE
+import com.smartyplugin.psi.SmartyConfigVars
+import com.smartyplugin.psi.SmartyInheritance
 import com.smartyplugin.psi.SmartyPsiUtil
 
 /**
@@ -42,6 +44,18 @@ class SmartyCompletionContributor : CompletionContributor() {
         val caretInToken = parameters.offset - position.textRange.startOffset
         val prefix = position.text.substring(0, maxOf(0, minOf(caretInToken, position.textLength)))
         val rs = result.withPrefixMatcher(prefix)
+
+        // {#ti<caret>#}: config variables of the loaded .conf files
+        if (SmartyConfigVars.nameAt(position) != null) {
+            completeConfigVars(parameters, position, result)
+            return
+        }
+        // {block name="<caret>"}: the blocks of the layouts above
+        val blockName = SmartyInheritance.asBlockName(position)
+        if (blockName != null) {
+            completeBlockNames(parameters, position, blockName, result)
+            return
+        }
 
         when {
             type === TAG_NAME -> {
@@ -117,6 +131,45 @@ class SmartyCompletionContributor : CompletionContributor() {
         const val DUMMY = "IntellijIdeaRulezzz"
         val NAME_ATTRIBUTES_DEFINING_VARIABLES = setOf("var", "item", "key", "assign")
         val IDENTIFIER_PATTERN = Regex("[A-Za-z_][A-Za-z0-9_]*")
+
+        fun completeConfigVars(parameters: CompletionParameters, position: PsiElement, result: CompletionResultSet) {
+            val start = position.textRange.startOffset + if (position.text.startsWith("#")) 1 else 0
+            val rs = result.withPrefixMatcher(position.containingFile.text.substring(start, maxOf(start, parameters.offset)))
+            val closed = position.text.startsWith("#")
+            val seen = HashSet<String>()
+            for (v in SmartyConfigVars.available(parameters.originalFile)) {
+                if (!seen.add(v.name)) continue
+                rs.addElement(
+                    LookupElementBuilder.create(v.name)
+                        .withIcon(AllIcons.Nodes.Variable)
+                        .withTailText(" = " + v.value, true)
+                        .withTypeText(v.section?.let { "[$it] " }.orEmpty() + v.target.containingFile.name, true)
+                        .withInsertHandler { context, _ ->
+                            val doc = context.document
+                            val tail = context.tailOffset
+                            if (!closed && (tail >= doc.textLength || doc.charsSequence[tail] != '#')) doc.insertString(tail, "#")
+                            context.editor.caretModel.moveToOffset(tail + 1)
+                        },
+                )
+            }
+            rs.stopHere()
+        }
+
+        fun completeBlockNames(parameters: CompletionParameters, position: PsiElement, name: PsiElement, result: CompletionResultSet) {
+            val quoted = name.text.startsWith("\"") || name.text.startsWith("'")
+            val start = name.textRange.startOffset + if (quoted) 1 else 0
+            val prefix = position.containingFile.text.substring(start, maxOf(start, parameters.offset))
+            val rs = result.withPrefixMatcher(prefix)
+            val seen = HashSet<String>()
+            for (layout in SmartyInheritance.parents(parameters.originalFile)) {
+                for (block in SmartyInheritance.blocks(layout).keys) {
+                    if (seen.add(block)) {
+                        rs.addElement(LookupElementBuilder.create(block).withIcon(SmartyIcons.FILE).withTypeText(layout.name, true))
+                    }
+                }
+            }
+            rs.stopHere()
+        }
 
         // ------------------------------------------------------------ tags
 

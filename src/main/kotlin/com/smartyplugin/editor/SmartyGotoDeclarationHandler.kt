@@ -11,6 +11,8 @@ import com.smartyplugin.lexer.SmartyTokenTypes.KEYWORD
 import com.smartyplugin.lexer.SmartyTokenTypes.VARIABLE
 import com.smartyplugin.parser.SmartyElementTypes.ATTRIBUTE
 import com.smartyplugin.parser.SmartyElementTypes.OPEN_TAG
+import com.smartyplugin.psi.SmartyConfigVars
+import com.smartyplugin.psi.SmartyInheritance
 import com.smartyplugin.psi.SmartyPsiUtil
 
 /** Ctrl+Click on `$name` goes to where the template receives it (e.g. the PHP render call). */
@@ -19,8 +21,17 @@ class SmartyGotoDeclarationHandler : GotoDeclarationHandler {
         if (source == null) return null
         val file = source.containingFile
         if (file == null || file.viewProvider !is SmartyFileViewProvider) return null
-        val token = SmartyPsiUtil.smartyElementAt(file, offset)
-        if (token == null || !SmartyPsiUtil.isType(token, VARIABLE)) return null
+        val token = SmartyPsiUtil.smartyElementAt(file, offset) ?: return null
+        // {block name="content"}: the block it overrides in the layout
+        SmartyInheritance.asBlockName(token)?.let { name ->
+            return SmartyInheritance.overridden(name)?.let { arrayOf(it) }
+        }
+        // {#title#}: its line in the loaded .conf file(s)
+        SmartyConfigVars.nameAt(token)?.let { configName ->
+            val targets = SmartyConfigVars.available(file).filter { it.name == configName }.map { it.target }
+            return if (targets.isEmpty()) null else targets.toTypedArray()
+        }
+        if (!SmartyPsiUtil.isType(token, VARIABLE)) return null
         val name = token.text.substring(1)
         val local = templateDefinition(token, name)
         if (local != null) return arrayOf(local)

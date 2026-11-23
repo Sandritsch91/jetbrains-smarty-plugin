@@ -46,43 +46,63 @@ object SmartyIncludes {
     }
 
     private fun compute(template: PsiFile): List<Passed> {
-        val target = template.viewProvider.virtualFile
+        val result = ArrayList<Passed>()
+        for (tag in referringTags(template, "include")) {
+            for (attribute in tag.children) {
+                if (!SmartyPsiUtil.isType(attribute, ATTRIBUTE)) continue
+                val nameNode = attribute.node.firstChildNode
+                if (nameNode == null || nameNode.elementType !== ATTR_NAME) continue
+                val name = nameNode.text
+                if (name in OWN_ATTRIBUTES) continue
+                result.add(Passed(name, nameNode.psi, lastValueToken(attribute)))
+            }
+        }
+        return result
+    }
+
+    /** Tags named [tagName] ({include}, {extends}) in other templates whose file path resolves to [template]. */
+    fun referringTags(template: PsiFile, tagName: String): List<PsiElement> {
+        val target = template.originalFile.viewProvider.virtualFile
         val word = target.nameWithoutExtension.split(NON_WORD).firstOrNull { it.isNotEmpty() } ?: return emptyList()
         val project = template.project
         val psiManager = PsiManager.getInstance(project)
         val scope = GlobalSearchScope.projectScope(project)
+        // by extension, not by file type: see SmartyPhpRenderCalls
         val templates = LinkedHashSet<VirtualFile>()
         for (ext in arrayOf("tpl", "smarty")) templates.addAll(FilenameIndex.getAllFilesByExt(project, ext, scope))
 
-        val result = ArrayList<Passed>()
+        val result = ArrayList<PsiElement>()
         for (vf in templates) {
             if (vf == target) continue
             val file = psiManager.findFile(vf)
             if (file == null || !StringUtil.contains(file.viewProvider.contents, word)) continue
             val smarty = file.viewProvider.getPsi(SmartyLanguage) ?: continue
             for (literal in PsiTreeUtil.findChildrenOfType(smarty, SmartyStringLiteral::class.java)) {
-                if (!literal.isTemplatePath() || !includes(literal, target)) continue
-                val tag = (if (SmartyPsiUtil.isType(literal.parent, ATTRIBUTE)) literal.parent.parent else literal.parent)
-                    ?: continue
-                if (SmartyPsiUtil.tagName(tag.node) != "include") continue
-                for (attribute in tag.children) {
-                    if (!SmartyPsiUtil.isType(attribute, ATTRIBUTE)) continue
-                    val nameNode = attribute.node.firstChildNode
-                    if (nameNode == null || nameNode.elementType !== ATTR_NAME) continue
-                    val name = nameNode.text
-                    if (name in OWN_ATTRIBUTES) continue
-                    result.add(Passed(name, nameNode.psi, lastValueToken(attribute)))
-                }
+                val tag = pathTag(literal, tagName) ?: continue
+                if (resolve(literal)?.viewProvider?.virtualFile == target) result.add(tag)
             }
         }
         return result
     }
 
-    private fun includes(literal: SmartyStringLiteral, target: VirtualFile): Boolean {
-        val reference = literal.references.lastOrNull() ?: return false
-        val resolved = reference.resolve() as? PsiFile ?: return false
-        return resolved.viewProvider.virtualFile == target
+    /** The template named by the first {extends} / {include} ... of [file], if it resolves. */
+    fun referencedTemplate(file: PsiFile, tagName: String): PsiFile? {
+        val smarty = SmartyPsiUtil.smartyFile(file) ?: return null
+        for (literal in PsiTreeUtil.findChildrenOfType(smarty, SmartyStringLiteral::class.java)) {
+            if (pathTag(literal, tagName) != null) return resolve(literal)
+        }
+        return null
     }
+
+    /** The tag of a template path literal ({include file="x"}, {extends 'x'}) when the tag is named [tagName]. */
+    internal fun pathTag(literal: SmartyStringLiteral, tagName: String): PsiElement? {
+        if (!literal.isTemplatePath()) return null
+        val tag = (if (SmartyPsiUtil.isType(literal.parent, ATTRIBUTE)) literal.parent.parent else literal.parent) ?: return null
+        return if (SmartyPsiUtil.tagName(tag.node) == tagName) tag else null
+    }
+
+    internal fun resolve(literal: SmartyStringLiteral): PsiFile? =
+        literal.references.lastOrNull()?.resolve() as? PsiFile
 
     /** title=$model->title|escape -> the token the value expression ends with (before modifiers it is typed by). */
     private fun lastValueToken(attribute: PsiElement): PsiElement? {
