@@ -26,7 +26,14 @@ class SmartyPhpDocumentationProvider : AbstractDocumentationProvider() {
         if (file.viewProvider !is SmartyFileViewProvider) return null
         val token = SmartyPsiUtil.smartyElementAt(file, targetOffset) ?: return null
         if (SmartyPsiUtil.isType(token, VARIABLE)) return variableTarget(token)
+        // a translated message documents itself: its translations in all languages
+        if (SmartyYiiTranslations.messageCategory(token) != null) return token
         return SmartyPhpGotoDeclarationHandler.targets(token).firstOrNull()
+    }
+
+    override fun generateDoc(element: PsiElement?, originalElement: PsiElement?): String? {
+        if (element == null || element.language !== com.smartyplugin.lang.SmartyLanguage) return null
+        return SmartyYiiTranslations.documentation(element)
     }
 
     private fun variableTarget(variable: PsiElement): PsiElement? {

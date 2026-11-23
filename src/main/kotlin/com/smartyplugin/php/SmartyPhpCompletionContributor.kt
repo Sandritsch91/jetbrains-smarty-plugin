@@ -29,12 +29,33 @@ class SmartyPhpCompletionContributor : CompletionContributor() {
         val position = parameters.position
         if (position.language !== SmartyLanguage) return
         if (SmartyPsiUtil.isType(position, STRING)) {
-            // a key of a widget configuration: Select2::widget(['pluginNa|
-            val widget = SmartyPhpWidgetConfig.widgetForKey(position)
-            if (widget.isEmpty()) return
             val inToken = parameters.offset - position.textRange.startOffset
             val keyStart = minOf(1, inToken)
             val keyPrefix = position.text.substring(keyStart, maxOf(keyStart, minOf(inToken, position.textLength)))
+            // {url route="adm|"}, Url::to(['adm|'])
+            if (SmartyYiiRoutes.isRoute(position)) {
+                val routes = result.withPrefixMatcher(keyPrefix)
+                SmartyYiiRoutes.complete(position, routes)
+                routes.stopHere()
+                return
+            }
+            // 'Ic|'|t:'category', Yii::t('category', 'Ic|')
+            val category = SmartyYiiTranslations.messageCategory(position)
+            if (category != null) {
+                val messages = result.withPrefixMatcher(keyPrefix)
+                SmartyYiiTranslations.completeMessages(position, category, messages)
+                messages.stopHere()
+                return
+            }
+            if (SmartyYiiTranslations.isCategory(position)) {
+                val categories = result.withPrefixMatcher(keyPrefix)
+                SmartyYiiTranslations.completeCategories(position, categories)
+                categories.stopHere()
+                return
+            }
+            // a key of a widget configuration: Select2::widget(['pluginNa|
+            val widget = SmartyPhpWidgetConfig.widgetForKey(position)
+            if (widget.isEmpty()) return
             val keys = result.withPrefixMatcher(keyPrefix)
             SmartyPhpWidgetConfig.completeKeys(position, widget, position.project, keys)
             keys.stopHere()

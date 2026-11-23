@@ -37,6 +37,8 @@ class SmartyPhpGotoDeclarationHandler : GotoDeclarationHandler {
     internal companion object {
         fun targets(token: PsiElement): List<PsiElement> {
             if (SmartyPsiUtil.isType(token, STRING)) {
+                if (SmartyYiiRoutes.isRoute(token)) return SmartyYiiRoutes.resolve(token)
+                if (SmartyYiiTranslations.messageCategory(token) != null) return SmartyYiiTranslations.resolve(token)
                 val arrow = SmartyPhpTypes.nextSignificant(token)
                 if (arrow != null && SmartyPsiUtil.isType(arrow, DOUBLE_ARROW)) {
                     // 'pluginOptions' => ... in Select2::widget([...])
