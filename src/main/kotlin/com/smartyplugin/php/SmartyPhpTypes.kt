@@ -102,9 +102,14 @@ internal object SmartyPhpTypes {
         return null
     }
 
+    /** Variables passed in by PHP render / assign calls and by {include} tags of other templates. */
+    fun allPassed(template: PsiFile): List<SmartyPhpRenderCalls.Passed> =
+        SmartyPhpRenderCalls.passedTo(template) +
+            com.smartyplugin.psi.SmartyIncludes.passedTo(template).map { SmartyPhpRenderCalls.Passed(it.name, it.target, it.value) }
+
     fun passedType(template: PsiFile, name: String): PhpType? {
         var result: PhpType? = null
-        for (p in SmartyPhpRenderCalls.passedTo(template)) {
+        for (p in allPassed(template)) {
             if (p.name != name) continue
             val type = typeOf(p) ?: continue
             result = if (result == null) type else PhpType().add(result).add(type)

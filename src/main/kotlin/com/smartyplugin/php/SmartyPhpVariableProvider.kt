@@ -9,7 +9,7 @@ class SmartyPhpVariableProvider : SmartyVariableProvider {
     override fun getVariables(template: PsiFile): List<Variable> {
         val result = ArrayList<Variable>()
         val passed = HashSet<String>()
-        for (p in SmartyPhpRenderCalls.passedTo(template)) {
+        for (p in SmartyPhpTypes.allPassed(template)) {
             result.add(Variable(p.name, SmartyPhpTypes.presentable(SmartyPhpTypes.typeOf(p)), p.target))
             passed.add(p.name)
         }

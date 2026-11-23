@@ -24,7 +24,7 @@ class SmartyGotoDeclarationHandler : GotoDeclarationHandler {
         val name = token.text.substring(1)
         val local = templateDefinition(token, name)
         if (local != null) return arrayOf(local)
-        val targets = SmartyVariableProvider.all(token.containingFile).filter { it.name == name }.map { it.target }
+        val targets = SmartyVariableProvider.all(token.containingFile).filter { it.name == name }.map { it.target }.distinct()
         return if (targets.isEmpty()) null else targets.toTypedArray()
     }
 

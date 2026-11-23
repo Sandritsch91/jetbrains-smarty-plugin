@@ -98,7 +98,19 @@ intellijPlatform {
     }
 }
 
+// ./gradlew test -PwithoutPhp: the plugin as in an IDE without the PHP plugin (WebStorm, IDEA without PHP).
+// PHP stays on the compile classpath, but is disabled in the test IDE; the tests that need it are skipped.
+val withoutPhp = providers.gradleProperty("withoutPhp").isPresent
+
+tasks.prepareTestSandbox {
+    if (withoutPhp) disabledPlugins.add("com.jetbrains.php")
+}
+
 tasks.test {
     // Tests boot a full headless IDE; give them room.
     maxHeapSize = "2g"
+    if (withoutPhp) {
+        exclude("**/SmartyPhpTest*", "**/SmartyYiiTest*", "**/SmartyDocumentationTest*")
+        systemProperty("smarty.withoutPhp", "true")
+    }
 }

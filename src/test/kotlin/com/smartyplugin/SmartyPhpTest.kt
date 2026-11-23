@@ -163,6 +163,25 @@ class SmartyPhpTest : BasePlatformTestCase() {
         assertEquals("user", (target as StringLiteralExpression).contents)
     }
 
+    fun testVariablesFromInclude() {
+        myFixture.addFileToProject(
+            "views/post-comment/index.tpl",
+            "{foreach \$users as \$u}{include file=\"_row.tpl\" row=\$u label=\$u->name|escape nocache}{/foreach}",
+        )
+        configureTemplate("views/post-comment/_row.tpl", "{\$row->profile->ci<caret>}")
+        myFixture.completeBasic()
+        myFixture.checkResult("{\$row->profile->city<caret>}")
+
+        com.intellij.openapi.command.WriteCommandAction.runWriteCommandAction(project) {
+            myFixture.editor.document.setText("{$}")
+        }
+        myFixture.editor.caretModel.moveToOffset(2)
+        myFixture.completeBasic()
+        val items = lookupStrings()
+        assertTrue(items.toString(), items.containsAll(listOf("\$row", "\$label")))
+        assertFalse(items.toString(), items.contains("\$nocache") || items.contains("\$file"))
+    }
+
     /** Layout of a real Yii module: namespaced classes, inherited @property docs, an unclosed tag while typing. */
     private fun addNotificationsModule() {
         myFixture.addFileToProject(

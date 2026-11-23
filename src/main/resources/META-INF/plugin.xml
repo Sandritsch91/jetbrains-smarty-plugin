@@ -25,6 +25,10 @@
                         interface="com.smartyplugin.lang.SmartyVariableProvider" dynamic="true"/>
     </extensionPoints>
 
+    <extensions defaultExtensionNs="com.smartyplugin">
+        <variableProvider implementation="com.smartyplugin.psi.SmartyIncludeVariableProvider"/>
+    </extensions>
+
     <extensions defaultExtensionNs="com.intellij">
         <gotoDeclarationHandler implementation="com.smartyplugin.editor.SmartyGotoDeclarationHandler"/>
         <documentationProvider implementation="com.smartyplugin.editor.SmartyDocumentationProvider"/>

@@ -167,6 +167,28 @@ class SmartyEditingTest : BasePlatformTestCase() {
         myFixture.checkResult("{assign var=\"fooBar\" value=1}{foreach \$list as \$entry}{/foreach}{\$fooBar<caret>}")
     }
 
+    /** -PwithoutPhp: make sure the PHP plugin is really not loaded, so the other tests run without it. */
+    fun testPhpPluginLoadedAsConfigured() {
+        // our PHP part (META-INF/smarty-php.xml) is registered only when the PHP plugin is loaded
+        val loaded = com.smartyplugin.lang.SmartyVariableProvider.EP_NAME.extensionList
+            .any { it.javaClass.name == "com.smartyplugin.php.SmartyPhpVariableProvider" }
+        assertEquals(System.getProperty("smarty.withoutPhp") == null, loaded)
+    }
+
+    fun testVariablesFromInclude() {
+        myFixture.addFileToProject("pages/list.tpl", "{include 'parts/item.tpl' heading=\$title caching}")
+        myFixture.addFileToProject("pages/other.tpl", "{include file='parts/other.tpl' unrelated=1}")
+        val item = myFixture.addFileToProject("pages/parts/item.tpl", "{\$hea<caret>}")
+        myFixture.configureFromExistingVirtualFile(item.virtualFile)
+        myFixture.completeBasic()
+        myFixture.checkResult("{\$heading<caret>}")
+
+        val target = com.intellij.codeInsight.navigation.actions.GotoDeclarationAction
+            .findTargetElement(project, myFixture.editor, 3)
+        assertEquals("heading", target?.text)
+        assertEquals("list.tpl", target?.containingFile?.name)
+    }
+
     fun testAttributeCompletion() {
         myFixture.configureByText("c.tpl", "{include fi<caret>}")
         myFixture.completeBasic()
