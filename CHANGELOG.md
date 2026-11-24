@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- `{ldelim}` and `{rdelim}` in `{registerJs}` / `{registerCss}` count as the braces they print: no false JavaScript errors, and formatting indents by them
+
 ## [0.1.1] - 2026-11-24
 
 ### Fixed

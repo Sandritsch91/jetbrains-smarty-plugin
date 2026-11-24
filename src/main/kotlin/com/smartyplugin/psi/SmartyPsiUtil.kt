@@ -56,6 +56,17 @@ object SmartyPsiUtil {
     @JvmStatic
     fun tagName(tag: ASTNode?): String? = tagNameNode(tag)?.text
 
+    /**
+     * What a Smarty tag inside `{registerJs}` / `{registerCss}` code stands for in that code: `{ldelim}` and
+     * `{rdelim}` print a brace, any other tag a value (`var id = {$model->id};`). One character, see SmartyCodeLayout.
+     */
+    @JvmStatic
+    fun codeStandIn(tag: ASTNode): String = when (tagName(tag)) {
+        "ldelim" -> "{"
+        "rdelim" -> "}"
+        else -> "0"
+    }
+
     @JvmStatic
     fun openTag(block: ASTNode): ASTNode? = block.findChildByType(OPEN_TAG)
 

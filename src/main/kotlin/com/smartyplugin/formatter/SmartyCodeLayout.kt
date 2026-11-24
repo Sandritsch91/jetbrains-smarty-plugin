@@ -63,9 +63,6 @@ internal object SmartyCodeLayout {
         "CSS" to "css",
     )
 
-    /** Stands in for a Smarty tag in the copy given to the formatter, as in the injection. */
-    private const val PLACEHOLDER = "0"
-
     /** A piece of the body that the formatter treats as a unit: a run of code without inner changes, or a tag. */
     private class Unit(val hostStart: Int, val hostEnd: Int, val copyStart: Int, val copyEnd: Int, val tag: ASTNode?)
 
@@ -110,7 +107,7 @@ internal object SmartyCodeLayout {
         val language = Language.findLanguageByID(languageId) ?: return null
         if (!ApplicationManager.getApplication().isWriteAccessAllowed) return null
 
-        // the copy: code as written, every tag replaced by the placeholder
+        // the copy: code as written, every tag replaced by its stand-in, as in the injection
         val copy = StringBuilder()
         val pieces = ArrayList<Unit>() // code texts and tags, with their offsets in host and copy
         var child = body.firstChildNode
@@ -121,7 +118,7 @@ internal object SmartyCodeLayout {
                 copy.append(child.chars)
                 pieces.add(Unit(child.startOffset, hostEnd, copyStart, copy.length, null))
             } else if (!isJavaBlank(child.text)) {
-                copy.append(PLACEHOLDER)
+                copy.append(SmartyPsiUtil.codeStandIn(child))
                 pieces.add(Unit(child.startOffset, hostEnd, copyStart, copy.length, child))
             } else {
                 copy.append(child.chars)
@@ -281,6 +278,11 @@ internal object SmartyCodeLayout {
         while (child != null) {
             if (child.elementType !== CODE_TEXT) {
                 if (!isJavaBlank(child.text)) {
+                    // {ldelim} / {rdelim} open and close a level like the braces they print
+                    when (SmartyPsiUtil.codeStandIn(child)) {
+                        "{" -> open.push(lineLevel + 1)
+                        "}" -> if (!open.isEmpty()) open.pop()
+                    }
                     result.add(tags.create(child))
                     last = null
                     atLineStart = false

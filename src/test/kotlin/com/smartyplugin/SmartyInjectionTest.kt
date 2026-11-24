@@ -50,6 +50,20 @@ class SmartyInjectionTest : BasePlatformTestCase() {
         assertTrue(text, text.contains("{/registerCss}"))
     }
 
+    fun testDelimiterTagsAreBraces() {
+        myFixture.configureByText("form.tpl", DELIMITERS)
+        val errors = myFixture.doHighlighting(HighlightSeverity.ERROR).map { "${it.description} at ${it.startOffset}" }
+        assertEquals(emptyList<String>(), errors)
+    }
+
+    fun testReformatWithDelimiterTags() {
+        myFixture.configureByText("form.tpl", DELIMITERS.lines().joinToString("\n") { it.trim() })
+        WriteCommandAction.runWriteCommandAction(project, Runnable {
+            CodeStyleManager.getInstance(project).reformat(myFixture.file)
+        })
+        assertEquals(DELIMITERS, myFixture.editor.document.text)
+    }
+
     private companion object {
         val TEMPLATE = $$"""
             <div>
@@ -65,6 +79,23 @@ class SmartyInjectionTest : BasePlatformTestCase() {
                     }
                 {/registerCss}
             </div>
+            """.trimIndent() + "\n"
+
+        /** {ldelim} and {rdelim} print the braces of the JavaScript. */
+        val DELIMITERS = $$"""
+            {registerJs}
+                jQuery('#form').yiiActiveForm('add', {ldelim}
+                    id: 'field-{$cnt}-label',
+                    validate: function (attribute, value, messages) {ldelim}
+                        yii.validation.required(value, messages, {ldelim}message: 'Required'{rdelim});
+                    {rdelim}
+                {rdelim});
+                jQuery('#delete-{$id}').on('click', function () {ldelim}
+                    if (confirm('Sure?')) {ldelim}
+                        jQuery(this).remove();
+                    {rdelim}
+                {rdelim});
+            {/registerJs}
             """.trimIndent() + "\n"
     }
 }

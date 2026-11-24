@@ -3,6 +3,7 @@ package com.smartyplugin.editor
 import com.intellij.lang.Language
 import com.intellij.lang.injection.MultiHostInjector
 import com.intellij.lang.injection.MultiHostRegistrar
+import com.intellij.lang.ASTNode
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiElement
 import com.smartyplugin.parser.SmartyElementTypes.BLOCK_BODY
@@ -37,27 +38,27 @@ class SmartyCodeBlockInjector : MultiHostInjector {
             .toList()
         if (pieces.isEmpty()) return
         registrar.startInjecting(language)
-        for (piece in pieces) {
-            // a Smarty tag after the piece is a value at run time ("var id = {$model->id};", "width: {$w}px"):
-            // stand in a neutral value so the script parses instead of showing "var id = ;" as an error
-            val suffix = if (followedByTag(piece)) PLACEHOLDER else null
-            registrar.addPlace(null, suffix, piece, TextRange.from(0, piece.textLength))
+        for ((i, piece) in pieces.withIndex()) {
+            // Smarty tags between the pieces print something at run time: a value ("var id = {$model->id};",
+            // "width: {$w}px") or a brace ({ldelim}, {rdelim}). Stand in for them so the script parses instead of
+            // showing "var id = ;" or unbalanced braces as errors.
+            val prefix = if (i == 0) standIns(generateSequence(piece.node.treePrev) { it.treePrev }).reversed() else ""
+            val suffix = standIns(generateSequence(piece.node.treeNext) { it.treeNext })
+            registrar.addPlace(prefix.ifEmpty { null }, suffix.ifEmpty { null }, piece, TextRange.from(0, piece.textLength))
         }
         registrar.doneInjecting()
     }
+
+    /** Stand-ins of the tags up to the next piece of code, in the order given. */
+    private fun standIns(siblings: Sequence<ASTNode>): String =
+        siblings.takeWhile { it.elementType !== CODE_TEXT }
+            .filter { it.text.isNotBlank() }
+            .joinToString("") { SmartyPsiUtil.codeStandIn(it) }
 
     private companion object {
         val BLOCK_LANGUAGES = mapOf(
             "registerJs" to "JavaScript",
             "registerCss" to "CSS",
         )
-
-        const val PLACEHOLDER = "0"
-
-        fun followedByTag(piece: SmartyCodeText): Boolean {
-            var next = piece.node.treeNext
-            while (next != null && next.textLength == 0) next = next.treeNext
-            return next != null && next.elementType !== CODE_TEXT
-        }
     }
 }
