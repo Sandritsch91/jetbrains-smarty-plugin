@@ -56,6 +56,29 @@ class SmartyInjectionTest : BasePlatformTestCase() {
         assertEquals(emptyList<String>(), errors)
     }
 
+    fun testAllBranchesOfNestedBlocksAreCode() {
+        myFixture.configureByText("form.tpl", DELIMITERS)
+        assertEquals("JavaScript", injectedLanguageAt("var that"))
+        assertEquals("JavaScript", injectedLanguageAt("closest("))
+        assertNull("the tags of the block stay Smarty", injectedLanguageAt("{else}"))
+    }
+
+    fun testReformatKeepsInlineBlocks() {
+        val text = $$"""
+            {registerJs}
+                var size = {if $big}10{else}5{/if};
+                if (size) {ldelim}
+                    {if $debug}console.log(size);{/if}
+                {rdelim}
+            {/registerJs}
+            """.trimIndent() + "\n"
+        myFixture.configureByText("form.tpl", text)
+        WriteCommandAction.runWriteCommandAction(project, Runnable {
+            CodeStyleManager.getInstance(project).reformat(myFixture.file)
+        })
+        assertEquals(text, myFixture.editor.document.text)
+    }
+
     fun testReformatWithDelimiterTags() {
         myFixture.configureByText("form.tpl", DELIMITERS.lines().joinToString("\n") { it.trim() })
         WriteCommandAction.runWriteCommandAction(project, Runnable {
@@ -92,7 +115,17 @@ class SmartyInjectionTest : BasePlatformTestCase() {
                 {rdelim});
                 jQuery('#delete-{$id}').on('click', function () {ldelim}
                     if (confirm('Sure?')) {ldelim}
-                        jQuery(this).remove();
+                        {if $model->id}
+                            var that = this;
+                            jQuery.ajax({ldelim}
+                                url: '{path route="field/delete" id=$model->id}',
+                                method: 'post'
+                            {rdelim}).done(function () {
+                                jQuery(that).remove();
+                            });
+                        {else}
+                            jQuery(this).closest('.row').remove();
+                        {/if}
                     {rdelim}
                 {rdelim});
             {/registerJs}

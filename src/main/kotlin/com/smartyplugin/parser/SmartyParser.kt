@@ -85,7 +85,8 @@ class SmartyParser @JvmOverloads constructor(delimiters: SmartyDelimiters = Smar
 
     /** Parses content until EOF, a closing tag of an enclosing block, or a middle tag of the innermost block. */
     private fun parseBody(stack: ArrayDeque<String>) {
-        val code = stack.peek()?.let { it in CODE_BLOCKS } == true
+        // also inside {if}, {foreach} ... within the code block: all branches are code
+        val code = stack.any { it in CODE_BLOCKS }
         while (!b.eof()) {
             if (b.tokenType !== LDELIM) {
                 if (code && b.tokenType === TEMPLATE_TEXT) {
@@ -230,7 +231,7 @@ class SmartyParser @JvmOverloads constructor(delimiters: SmartyDelimiters = Smar
     }
 
     private companion object {
-        /** yii2-smarty blocks whose content is JavaScript / CSS: their text becomes CODE_TEXT injection hosts. */
+        /** yii2-smarty blocks whose content is JavaScript / CSS: their text, also in nested blocks, becomes CODE_TEXT injection hosts. */
         val CODE_BLOCKS = setOf("registerJs", "registerCss")
     }
 }

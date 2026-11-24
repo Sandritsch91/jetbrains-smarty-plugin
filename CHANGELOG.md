@@ -5,6 +5,7 @@
 ### Fixed
 
 - `{ldelim}` and `{rdelim}` in `{registerJs}` / `{registerCss}` count as the braces they print: no false JavaScript errors, and formatting indents by them
+- `{registerJs}` / `{registerCss}`: code inside `{if}`, `{foreach}` and other nested blocks is JavaScript / CSS too (all branches form one script), and formatting indents it
 
 ## [0.1.1] - 2026-11-24
 

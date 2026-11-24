@@ -15,6 +15,9 @@ import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiFileFactory
 import com.intellij.psi.codeStyle.CodeStyleManager
 import com.smartyplugin.parser.SmartyElementTypes.BLOCK
+import com.smartyplugin.parser.SmartyElementTypes.BLOCK_PARTS
+import com.smartyplugin.parser.SmartyElementTypes.CLOSE_TAG
+import com.smartyplugin.parser.SmartyElementTypes.OPEN_TAG
 import com.smartyplugin.parser.SmartyElementTypes.BLOCK_BODY
 import com.smartyplugin.parser.SmartyElementTypes.CODE_TEXT
 import com.smartyplugin.psi.SmartyPsiUtil
@@ -37,6 +40,70 @@ internal object SmartyCodeLayout {
         if (node.elementType !== BLOCK_BODY) return false
         val block = node.treeParent
         return block != null && block.elementType === BLOCK && SmartyPsiUtil.blockName(block) in CODE_BLOCKS
+    }
+
+    /** A piece of a code body: a run of code text, or a Smarty tag ([code] false) with what it stands for in the code. */
+    class Piece(val node: ASTNode, val code: Boolean, val standIn: String)
+
+    /**
+     * The code texts and tags of a code body in document order, also those inside nested blocks: all branches of
+     * `{if}...{else}...{/if}` are code. [structural] gives the stand-ins of the nested blocks' own tags
+     * (`{if}`, `{else}`, `{/if}`); other tags stand for what they print ([SmartyPsiUtil.codeStandIn]).
+     */
+    fun pieces(body: ASTNode, structural: (block: ASTNode, tag: ASTNode) -> String): List<Piece> {
+        val result = ArrayList<Piece>()
+        fun walk(container: ASTNode) {
+            var child = container.firstChildNode
+            while (child != null) {
+                val type = child.elementType
+                when {
+                    type === CODE_TEXT -> result.add(Piece(child, true, ""))
+                    isJavaBlank(child.text) -> {}
+                    type === BLOCK && SmartyPsiUtil.blockName(child) !in CODE_BLOCKS -> {
+                        var part = child.firstChildNode
+                        while (part != null) {
+                            when {
+                                part.elementType === BLOCK_BODY -> walk(part)
+                                isJavaBlank(part.text) -> {}
+                                BLOCK_PARTS.contains(part.elementType) -> result.add(Piece(part, false, structural(child, part)))
+                                else -> result.add(Piece(part, false, SmartyPsiUtil.codeStandIn(part)))
+                            }
+                            part = part.treeNext
+                        }
+                    }
+                    else -> result.add(Piece(child, false, SmartyPsiUtil.codeStandIn(child)))
+                }
+                child = child.treeNext
+            }
+        }
+        walk(body)
+        return result
+    }
+
+    /**
+     * Stand-ins of a nested block's tags for the language formatter: braces when every tag of the block stands on
+     * a line of its own, so that the formatter indents the branches (`{if $x}` -> `{`, `{else}` -> `}{`,
+     * `{/if}` -> `}`); otherwise an empty comment, which keeps the code around it as it is (`var x = {if $a}1{else}2{/if};`).
+     */
+    private fun formatterStandIn(block: ASTNode, tag: ASTNode): String {
+        val text = block.psi.containingFile.viewProvider.contents
+        val ownLines = generateSequence(block.firstChildNode) { it.treeNext }
+            .filter { BLOCK_PARTS.contains(it.elementType) }
+            .all { aloneOnLine(text, it.startOffset, it.startOffset + it.textLength) }
+        if (!ownLines) return "/**/" // nothing, as far as JavaScript and CSS are concerned
+        return when (tag.elementType) {
+            OPEN_TAG -> "{"
+            CLOSE_TAG -> "}"
+            else -> "}{"
+        }
+    }
+
+    private fun aloneOnLine(text: CharSequence, start: Int, end: Int): Boolean {
+        var i = start - 1
+        while (i >= 0 && text[i] != '\n') if (!Character.isWhitespace(text[i--])) return false
+        i = end
+        while (i < text.length && text[i] != '\n') if (!Character.isWhitespace(text[i++])) return false
+        return true
     }
 
     /** A line of code (or a comment that continues over several lines), indented by bracket depth. */
@@ -110,21 +177,21 @@ internal object SmartyCodeLayout {
         // the copy: code as written, every tag replaced by its stand-in, as in the injection
         val copy = StringBuilder()
         val pieces = ArrayList<Unit>() // code texts and tags, with their offsets in host and copy
-        var child = body.firstChildNode
-        while (child != null) {
+        val text = body.psi.containingFile.viewProvider.contents
+        var hostPos = body.startOffset
+        for (piece in pieces(body, ::formatterStandIn)) {
+            val node = piece.node
+            // between pieces there is only whitespace (around tags, at the edges of nested bodies)
+            val gap = text.subSequence(hostPos, node.startOffset)
+            if (!isJavaBlank(gap.toString())) return null
+            copy.append(gap)
             val copyStart = copy.length
-            val hostEnd = child.startOffset + child.textLength
-            if (child.elementType === CODE_TEXT) {
-                copy.append(child.chars)
-                pieces.add(Unit(child.startOffset, hostEnd, copyStart, copy.length, null))
-            } else if (!isJavaBlank(child.text)) {
-                copy.append(SmartyPsiUtil.codeStandIn(child))
-                pieces.add(Unit(child.startOffset, hostEnd, copyStart, copy.length, child))
-            } else {
-                copy.append(child.chars)
-            }
-            child = child.treeNext
+            val hostEnd = node.startOffset + node.textLength
+            copy.append(if (piece.code) node.chars else piece.standIn)
+            pieces.add(Unit(node.startOffset, hostEnd, copyStart, copy.length, if (piece.code) null else node))
+            hostPos = hostEnd
         }
+        copy.append(text.subSequence(hostPos, body.startOffset + body.textLength))
         val original = copy.toString()
         val formatted = format(body, language, original)
         if (formatted == null || nonWhitespace(original) != nonWhitespace(formatted)) return null
@@ -155,7 +222,10 @@ internal object SmartyCodeLayout {
                 i != last + 1 || target[i] != target[last] + 1
             if (boundary && unitStart >= 0) {
                 result.add(
-                    block(piece!!, unitStart, last + 1, target, formatted, base, minIndent, tags, result.isEmpty()),
+                    block(
+                        piece!!, unitStart, last + 1, target, original, formatted, base, minIndent, tags,
+                        first = result.isEmpty(), afterTag = (result.lastOrNull() as? CodeBlock)?.isLeaf == false,
+                    ),
                 )
             }
             if (end) break
@@ -180,11 +250,13 @@ internal object SmartyCodeLayout {
         copyStart: Int,
         copyEnd: Int,
         target: IntArray,
+        original: String,
         formatted: String,
         base: Int,
         minIndent: Int,
         tags: TagBlocks,
         first: Boolean,
+        afterTag: Boolean,
     ): Block {
         val range: TextRange
         var tag: Block? = null
@@ -201,6 +273,14 @@ internal object SmartyCodeLayout {
         while (ws > 0 && Character.isWhitespace(formatted[ws - 1])) ws--
         val gap = formatted.substring(ws, at)
         val lineFeeds = gap.count { it == '\n' }
+        // a line with a Smarty tag in it stays one line: the formatter may break it around the tag's stand-in
+        var o = copyStart
+        while (o > 0 && Character.isWhitespace(original[o - 1])) o--
+        val originalGap = original.substring(o, copyStart)
+        if (!first && lineFeeds > 0 && (piece.tag != null || afterTag) && '\n' !in originalGap) {
+            val keep = Spacing.createSpacing(originalGap.length, originalGap.length, 0, false, 0)
+            return CodeBlock(range, Indent.getNoneIndent(), keep, tag)
+        }
         val spacing = when {
             first -> null
             lineFeeds > 0 -> Spacing.createSpacing(0, 0, lineFeeds, false, lineFeeds - 1)
