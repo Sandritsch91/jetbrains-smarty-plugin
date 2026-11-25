@@ -79,6 +79,30 @@ class SmartyInjectionTest : BasePlatformTestCase() {
         assertEquals(text, myFixture.editor.document.text)
     }
 
+    fun testReformatWhenTheCodeDoesNotParse() {
+        // {$selector} prints the start of a call, e.g. "jQuery('#form').yiiActiveForm('add', ": not known here
+        val text = $$"""
+            {registerJs}
+                {$selector}{ldelim}
+                    id: 'field-{$cnt}-label',
+                    name: 'Field[{$cnt}][label]',
+                    validate: function (attribute, value, messages) {ldelim}
+                        yii.validation.required(value, messages, {ldelim}
+                            message: '{'{attribute} cannot be blank.'|t:"yii":[
+                                'attribute' => $model->getAttributeLabel('label')
+                            ]}'
+                        {rdelim});
+                    {rdelim}
+                {rdelim});
+            {/registerJs}
+            """.trimIndent() + "\n"
+        myFixture.configureByText("form.tpl", text.lines().joinToString("\n") { it.trim() })
+        WriteCommandAction.runWriteCommandAction(project, Runnable {
+            CodeStyleManager.getInstance(project).reformat(myFixture.file)
+        })
+        assertEquals(text, myFixture.editor.document.text)
+    }
+
     fun testReformatWithDelimiterTags() {
         myFixture.configureByText("form.tpl", DELIMITERS.lines().joinToString("\n") { it.trim() })
         WriteCommandAction.runWriteCommandAction(project, Runnable {
@@ -110,7 +134,11 @@ class SmartyInjectionTest : BasePlatformTestCase() {
                 jQuery('#form').yiiActiveForm('add', {ldelim}
                     id: 'field-{$cnt}-label',
                     validate: function (attribute, value, messages) {ldelim}
-                        yii.validation.required(value, messages, {ldelim}message: 'Required'{rdelim});
+                        yii.validation.required(value, messages, {ldelim}
+                            message: '{'{attribute} cannot be blank.'|t:"yii":[
+                                'attribute' => $model->getAttributeLabel('label')
+                            ]}'
+                        {rdelim});
                     {rdelim}
                 {rdelim});
                 jQuery('#delete-{$id}').on('click', function () {ldelim}

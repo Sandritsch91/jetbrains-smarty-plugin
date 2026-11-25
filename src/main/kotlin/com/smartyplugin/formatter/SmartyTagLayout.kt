@@ -68,8 +68,8 @@ internal object SmartyTagLayout {
 
     fun isTag(node: ASTNode): Boolean = TAGS.contains(node.elementType)
 
-    /** Child blocks of a tag, with indents already decided. */
-    fun buildChildren(tag: ASTNode, settings: CodeStyleSettings): List<Block> {
+    /** Child blocks of a tag, with indents already decided. [lineIndent]: added to all, see SmartyFormatterBlock. */
+    fun buildChildren(tag: ASTNode, settings: CodeStyleSettings, lineIndent: Int = 0): List<Block> {
         val parts = ArrayList<ASTNode>()
         flatten(tag, parts)
         val unit = indentSize(tag, settings)
@@ -94,7 +94,7 @@ internal object SmartyTagLayout {
                 open.pop()
             }
 
-            val indent = Indent.getSpaceIndent(lineLevel * unit)
+            val indent = Indent.getSpaceIndent(lineIndent + lineLevel * unit)
             blocks.add(SmartyTagPartBlock(part, indent, settings))
         }
         return blocks

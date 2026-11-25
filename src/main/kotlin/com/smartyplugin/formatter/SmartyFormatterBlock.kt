@@ -26,6 +26,8 @@ internal class SmartyFormatterBlock(
     settings: CodeStyleSettings,
     node: ASTNode,
     foreignChildren: List<DataLanguageBlockWrapper>?,
+    /** For a tag in the middle of a line of code: the indent of that line, which continuation lines of the tag follow. */
+    private val tagLineIndent: Int = 0,
 ) : TemplateLanguageBlock(factory, settings, node, foreignChildren) {
 
     override fun getTemplateTextElementType(): IElementType = SmartyTokenTypes.TEMPLATE_TEXT
@@ -40,7 +42,7 @@ internal class SmartyFormatterBlock(
 
     override fun buildChildren(): List<Block> {
         if (isAtomic) return AbstractBlock.EMPTY
-        if (SmartyTagLayout.isTag(myNode)) return SmartyTagLayout.buildChildren(myNode, settings)
+        if (SmartyTagLayout.isTag(myNode)) return SmartyTagLayout.buildChildren(myNode, settings, tagLineIndent)
         if (SmartyCodeLayout.isCodeBody(myNode)) return buildCodeChildren()
         return super.buildChildren()
     }
@@ -50,8 +52,8 @@ internal class SmartyFormatterBlock(
         val unit = settings.getIndentOptionsByFile(myNode.psi.containingFile).INDENT_SIZE
         // lines of the body line up like HTML children of the block would
         val base = if (isInsideHtmlTagContent()) unit else 0
-        val tags = SmartyCodeLayout.TagBlocks { tag ->
-            val block = SmartyFormatterBlock(factory, settings, tag, null)
+        val tags = SmartyCodeLayout.TagBlocks { tag, lineIndent ->
+            val block = SmartyFormatterBlock(factory, settings, tag, null, lineIndent)
             block.parent = this
             block
         }

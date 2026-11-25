@@ -6,6 +6,7 @@
 
 - `{ldelim}` and `{rdelim}` in `{registerJs}` / `{registerCss}` count as the braces they print: no false JavaScript errors, and formatting indents by them
 - `{registerJs}` / `{registerCss}`: code inside `{if}`, `{foreach}` and other nested blocks is JavaScript / CSS too (all branches form one script), and formatting indents it
+- Formatting `{registerJs}` / `{registerCss}` code that only parses with the template filled in (`{$selector}{ldelim}`) no longer scrambles it, and lines of a multi-line tag in the middle of a code line follow that line's indent
 
 ## [0.1.1] - 2026-11-24
 

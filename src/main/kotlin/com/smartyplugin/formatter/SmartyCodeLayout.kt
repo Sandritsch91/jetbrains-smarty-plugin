@@ -14,6 +14,7 @@ import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiFileFactory
 import com.intellij.psi.codeStyle.CodeStyleManager
+import com.intellij.psi.util.PsiTreeUtil
 import com.smartyplugin.parser.SmartyElementTypes.BLOCK
 import com.smartyplugin.parser.SmartyElementTypes.BLOCK_PARTS
 import com.smartyplugin.parser.SmartyElementTypes.CLOSE_TAG
@@ -258,14 +259,19 @@ internal object SmartyCodeLayout {
         first: Boolean,
         afterTag: Boolean,
     ): Block {
-        val range: TextRange
-        var tag: Block? = null
-        if (piece.tag != null) {
-            range = TextRange.create(piece.hostStart, piece.hostEnd)
-            tag = tags.create(piece.tag)
+        val range = if (piece.tag != null) {
+            TextRange.create(piece.hostStart, piece.hostEnd)
         } else {
             val shift = piece.hostStart - piece.copyStart
-            range = TextRange.create(copyStart + shift, copyEnd + shift)
+            TextRange.create(copyStart + shift, copyEnd + shift)
+        }
+        // a tag in the middle of a line: its continuation lines follow the indent of that line in the formatted code
+        fun tag(startsLine: Boolean): Block? {
+            val node = piece.tag ?: return null
+            if (startsLine) return tags.create(node, 0) // relative to its own block, which carries the indent
+            var lineStart = original.lastIndexOf('\n', copyStart - 1) + 1
+            while (lineStart < copyStart && Character.isWhitespace(original[lineStart])) lineStart++
+            return tags.create(node, base + maxOf(0, lineIndent(formatted, target[lineStart]) - minIndent))
         }
         // whitespace before the unit in the formatted text
         val at = target[copyStart]
@@ -279,7 +285,7 @@ internal object SmartyCodeLayout {
         val originalGap = original.substring(o, copyStart)
         if (!first && lineFeeds > 0 && (piece.tag != null || afterTag) && '\n' !in originalGap) {
             val keep = Spacing.createSpacing(originalGap.length, originalGap.length, 0, false, 0)
-            return CodeBlock(range, Indent.getNoneIndent(), keep, tag)
+            return CodeBlock(range, Indent.getNoneIndent(), keep, tag(false))
         }
         val spacing = when {
             first -> null
@@ -292,7 +298,7 @@ internal object SmartyCodeLayout {
         } else {
             Indent.getNoneIndent()
         }
-        return CodeBlock(range, indent, spacing, tag)
+        return CodeBlock(range, indent, spacing, tag(startsLine))
     }
 
     private fun format(body: ASTNode, language: Language, text: String): String? {
@@ -301,6 +307,9 @@ internal object SmartyCodeLayout {
             val copy = PsiFileFactory.getInstance(project).createFileFromText(
                 "smarty-code." + EXTENSIONS[language.id], language, text, false, false,
             )
+            // code that doesn't parse (a tag printing part of a statement, "{$selector}{ldelim}") is moved around
+            // by the formatter as it misreads it: use the bracket layout instead
+            if (PsiTreeUtil.hasErrorElements(copy)) return null
             CodeStyleManager.getInstance(project).reformat(copy)
             copy.text
         } catch (e: ProcessCanceledException) {
@@ -339,7 +348,8 @@ internal object SmartyCodeLayout {
 
     /** Factory for the blocks of Smarty tags inside the code ({$model->id}). */
     fun interface TagBlocks {
-        fun create(tag: ASTNode): Block
+        /** @param lineIndent indent (columns, relative to the body) of the line the tag starts on */
+        fun create(tag: ASTNode, lineIndent: Int): Block
     }
 
     /**
@@ -354,20 +364,28 @@ internal object SmartyCodeLayout {
         var atLineStart = true // the body starts right after the opening tag; its first line counts as new
         var last: LineBlock? = null
 
-        var child = body.firstChildNode
-        while (child != null) {
-            if (child.elementType !== CODE_TEXT) {
-                if (!isJavaBlank(child.text)) {
-                    // {ldelim} / {rdelim} open and close a level like the braces they print
-                    when (SmartyPsiUtil.codeStandIn(child)) {
-                        "{" -> open.push(lineLevel + 1)
-                        "}" -> if (!open.isEmpty()) open.pop()
+        val fileText = body.psi.containingFile.viewProvider.contents
+        for (piece in pieces(body, ::formatterStandIn)) {
+            val child = piece.node
+            if (!piece.code) {
+                // a tag stands for what it prints: {ldelim} / {rdelim} and the tags of a nested block on lines of
+                // their own open and close a level like braces ({if} -> "{", {else} -> "}{", {/if} -> "}")
+                val braces = if (scanner.inString()) "" else piece.standIn.filter { it == '{' || it == '}' }
+                val startsLine = startsLine(fileText, child.startOffset)
+                if (startsLine) {
+                    lineLevel = if (braces.startsWith("}")) {
+                        if (open.isEmpty()) 0 else maxOf(0, open.peek() - 1)
+                    } else {
+                        if (open.isEmpty()) 0 else open.peek()
                     }
-                    result.add(tags.create(child))
-                    last = null
-                    atLineStart = false
                 }
-                child = child.treeNext
+                for (c in braces) {
+                    if (c == '{') open.push(lineLevel + 1) else if (!open.isEmpty()) open.pop()
+                }
+                val indent = if (startsLine) Indent.getSpaceIndent(base + lineLevel * unit) else Indent.getNoneIndent()
+                result.add(CodeBlock(TextRange.from(child.startOffset, child.textLength), indent, null, tags.create(child, if (startsLine) 0 else base + lineLevel * unit)))
+                last = null
+                atLineStart = false
                 continue
             }
             val text = child.chars
@@ -415,9 +433,15 @@ internal object SmartyCodeLayout {
                 i = lineEnd + 1
             }
             if (text.isNotEmpty() && text[text.length - 1] == '\n') atLineStart = true
-            child = child.treeNext
         }
         return result
+    }
+
+    /** Whether only whitespace precedes the offset on its line. */
+    private fun startsLine(text: CharSequence, offset: Int): Boolean {
+        var i = offset - 1
+        while (i >= 0 && text[i] != '\n') if (!Character.isWhitespace(text[i--])) return false
+        return true
     }
 
     private fun indexOf(text: CharSequence, c: Char, from: Int): Int {
@@ -435,6 +459,9 @@ internal object SmartyCodeLayout {
         private var blockComment = false
 
         fun insideMultiLine(): Boolean = blockComment || quote == '`'
+
+        /** Inside a string or comment: braces printed by tags here are text. */
+        fun inString(): Boolean = blockComment || quote != NO_QUOTE
 
         fun lineBreak() {
             if (quote == '\'' || quote == '"') quote = NO_QUOTE // unterminated single-line string
