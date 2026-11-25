@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-11-25
+
 ### Fixed
 
 - `{ldelim}` and `{rdelim}` in `{registerJs}` / `{registerCss}` count as the braces they print: no false JavaScript errors, and formatting indents by them
@@ -28,6 +30,7 @@ First release.
 - With the PHP plugin: variables passed from PHP with their types, member completion and navigation, hover documentation, navigation from `render()` to the template
 - Yii2: widgets as tags and in configuration arrays, `$app` / `$this`, the yii2-smarty functions and blocks, routes and translations
 
-[Unreleased]: https://github.com/Sandritsch91/jetbrains-smarty-plugin/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/Sandritsch91/jetbrains-smarty-plugin/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/Sandritsch91/jetbrains-smarty-plugin/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/Sandritsch91/jetbrains-smarty-plugin/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/Sandritsch91/jetbrains-smarty-plugin/commits/v0.1.0
